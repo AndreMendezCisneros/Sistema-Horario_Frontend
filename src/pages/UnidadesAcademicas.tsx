@@ -170,24 +170,47 @@ const UnidadesAcademicas = () => {
 
   return (
     <div className="container mx-auto py-6">
-      <PageHeader 
-        title="Unidades Académicas" 
-        description="Administración de unidades académicas"
-        onAdd={() => handleOpenModal()}
-      />
-
-      {isLoading ? (
-        <div className="flex justify-center my-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-academic-primary"></div>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Gestión de Unidades Académicas</h1>
+          <p className="text-gray-500">Administración de unidades académicas</p>
         </div>
-      ) : (
-        <DataTable 
-          data={unidades} 
-          columns={columns}
-          onEdit={handleOpenModal}
-          onDelete={handleDelete}
-        />
-      )}
+        <button
+          onClick={() => handleOpenModal()}
+          className="bg-yellow-400 hover:bg-yellow-500 text-white font-semibold px-5 py-2 rounded-lg shadow transition-all"
+        >
+          + Agregar Unidad
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        {unidades.map((unidad) => (
+          <div
+            key={unidad.unidad_id}
+            className="border-2 border-yellow-400 rounded-xl p-6 flex flex-col justify-between min-h-[180px] bg-gray-50 hover:shadow-lg transition-all"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <h2 className="text-xl font-bold leading-tight">{unidad.nombre_unidad}</h2>
+              <div className="flex gap-2">
+                <button onClick={() => handleOpenModal(unidad)} className="text-gray-500 hover:text-yellow-500" title="Editar">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-1.414.828l-4.243 1.414 1.414-4.243a4 4 0 01.828-1.414z" /></svg>
+                </button>
+                <button onClick={() => handleDelete(unidad)} className="text-gray-500 hover:text-red-500" title="Eliminar">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            </div>
+            <div className="text-sm text-gray-700 mb-2">ID: {unidad.unidad_id}</div>
+            <div className="text-gray-600 text-sm mb-4">{unidad.descripcion || 'Sin descripción'}</div>
+            <button
+              onClick={() => handleViewCarreras(unidad)}
+              className="bg-yellow-100 text-yellow-700 font-semibold py-2 rounded-lg hover:bg-yellow-200 transition-all"
+            >
+              Seleccionar
+            </button>
+          </div>
+        ))}
+      </div>
 
       <div className="flex items-center justify-end space-x-2 py-4">
         <span className="text-sm text-muted-foreground">

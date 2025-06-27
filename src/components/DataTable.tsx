@@ -42,24 +42,35 @@ const DataTable = ({ data, columns, onEdit, onDelete }: DataTableProps) => {
   );
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
             {columns.map((column) => (
-              <TableHead key={column.key}>{column.header}</TableHead>
+              <TableHead
+                key={column.key}
+                className="bg-[#3B82F6] text-white font-bold"
+              >
+                {column.header}
+              </TableHead>
             ))}
             {(onEdit || onDelete) && (
-              <TableHead className="text-right">Acciones</TableHead>
+              <TableHead className="text-right bg-[#3B82F6] text-white font-bold">Acciones</TableHead>
             )}
           </TableRow>
         </TableHeader>
         <TableBody>
           {paginatedData.length > 0 ?
             paginatedData.map((row, rowIndex) => (
-              <TableRow key={row.grupo_id || row.id || rowIndex}>
-                {columns.map((column) => (
-                  <TableCell key={`${row.grupo_id || row.id || rowIndex}-${column.key}`}>
+              <TableRow
+                key={row.grupo_id || row.id || rowIndex}
+                className={rowIndex % 2 === 0 ? 'bg-gray-50' : 'bg-white'}
+              >
+                {columns.map((column, colIdx) => (
+                  <TableCell
+                    key={`${row.grupo_id || row.id || rowIndex}-${column.key}`}
+                    className={colIdx === 0 ? 'bg-gray-300 text-gray-900 font-semibold' : ''}
+                  >
                     {column.render ? column.render(row) : row[column.key]}
                   </TableCell>
                 ))}

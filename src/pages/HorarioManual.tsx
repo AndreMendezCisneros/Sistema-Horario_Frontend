@@ -545,7 +545,7 @@ const HorarioManual = () => {
   };
   
   return (
-    <div className="py-6 px-4 sm:px-6 lg:px-8">
+    <div className="container mx-auto py-6 bg-gray-100 min-h-screen">
       <PageHeader 
         title="Asignación Manual de Horarios" 
         description="Configure manualmente los horarios para grupos y docentes"
@@ -699,13 +699,13 @@ const HorarioManual = () => {
               
               {selectedGrupo ? (
                   <div className="grid grid-cols-12 gap-4">
-                    {/* Panel de Materias (a implementar) */}
-                    <div className="col-span-2">
+                    {/* Panel de Materias (ajustado) */}
+                    <div className="col-span-12 md:col-span-3">
                       <MateriasPanel grupo={grupos.find(g => g.grupo_id === selectedGrupo) || null} />
                     </div>
                     
-                    {/* Cuadrícula del Horario (a implementar) */}
-                    <div className="col-span-10">
+                    {/* Cuadrícula del Horario (ajustado) */}
+                    <div className="col-span-12 md:col-span-9">
                        <HorarioGrid 
                          bloques={bloques}
                          horarios={allPeriodSchedules}

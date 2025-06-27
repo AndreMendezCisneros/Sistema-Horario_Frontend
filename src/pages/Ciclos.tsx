@@ -164,7 +164,7 @@ const Ciclos = () => {
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto py-6 bg-gray-100 min-h-screen">
       <PageHeader 
         title="Gestión de Ciclos Académicos" 
         description="Cree y administre los ciclos o semestres de cada carrera."

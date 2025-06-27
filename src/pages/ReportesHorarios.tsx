@@ -428,7 +428,7 @@ const ReportesHorarios = () => {
   }, [horarios]);
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto py-6 bg-gray-100 min-h-screen">
       <PageHeader 
         title="Reportes de Horarios" 
         description="Visualice y exporte horarios académicos filtrados por diferentes criterios"

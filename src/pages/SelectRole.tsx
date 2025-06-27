@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import logo from '/image/logo-sinfondo.png';
+import logo from '/image/icono.png';
 import { useEffect } from 'react';
 
 const SelectRole = () => {
@@ -28,7 +28,7 @@ const SelectRole = () => {
   return (
     <div 
       className="flex flex-col items-center justify-center min-h-screen bg-cover bg-center bg-no-repeat p-4 text-white"
-      style={{ backgroundImage: "url('/image/portada.png')" }}
+      style={{ backgroundImage: "url('/image/portada2.jpg')" }}
     >
       <div className="absolute inset-0 bg-black opacity-50"></div>
       
@@ -66,7 +66,7 @@ const SelectRole = () => {
         >
           <p className="text-sm font-light tracking-widest text-gray-300 mb-2">PLATAFORMA DE GESTIÓN ACADÉMICA</p>
           <h1 className="text-5xl md:text-6xl font-bold mb-4">
-            Bienvenido al Sistema <br /> de La Pontificia
+            Bienvenido al Sistema del Equipo Alfa Buena Maravilla Onda Dinamita Escuadrón Lobo
           </h1>
           <p className="text-base md:text-lg text-gray-300 max-w-2xl mx-auto mb-8">
             Este sistema facilita la planificación y organización de horarios académicos para <span className="font-bold">docentes y coordinadores.</span> Ingrese según tu rol para acceder a las funciones correspondientes.

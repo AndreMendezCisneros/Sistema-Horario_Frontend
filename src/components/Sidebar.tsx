@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,6 +18,17 @@ import {
   Clock
 } from 'lucide-react';
 import DarkModeToggle from './DarkModeToggle';
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from './ui/alert-dialog';
 
 const Sidebar = () => {
   const { role, logout } = useAuth();
@@ -78,16 +88,36 @@ const Sidebar = () => {
             </NavLink>
           ))}
           
-          <button
-            onClick={() => {
-              logout();
-              navigate('/login');
-            }}
-            className="flex w-full items-center px-4 py-3 text-sidebar-foreground rounded-lg hover:bg-sidebar-accent transition-all mt-10"
-          >
-            <LogIn className="w-5 h-5 mr-3" />
-            <span>Cerrar Sesión</span>
-          </button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                className="flex w-full items-center px-4 py-3 text-sidebar-foreground rounded-lg hover:bg-sidebar-accent transition-all mt-10"
+              >
+                <LogIn className="w-5 h-5 mr-3" />
+                <span>Cerrar Sesión</span>
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="bg-white">
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Deseas cerrar sesión?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Si cierras sesión tendrás que ingresar tus credenciales nuevamente para acceder al sistema.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  onClick={() => {
+                    logout();
+                    navigate('/login');
+                  }}
+                >
+                  Sí, cerrar sesión
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </nav>
       </div>
     </aside>

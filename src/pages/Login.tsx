@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from "sonner";
 import { User, Lock, ArrowLeft } from 'lucide-react';
-import logo from '/image/logo-sinfondo.png';
+import logo from '/image/icono.png';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -44,7 +44,7 @@ const Login = () => {
   return (
     <div 
       className="flex flex-col items-center justify-center min-h-screen bg-cover bg-center p-4"
-      style={{ backgroundImage: "url('/image/portada.png')" }}
+      style={{ backgroundImage: "url('/image/portada2.jpg')" }}
     >
       <div className="absolute inset-0 bg-black/60"></div>
       <motion.div

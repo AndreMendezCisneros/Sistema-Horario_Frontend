@@ -243,7 +243,7 @@ const Restricciones = () => {
   ];
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto py-6 bg-gray-100 min-h-screen">
       <PageHeader 
         title="Configuración de Restricciones" 
         description="Defina reglas y restricciones para la generación de horarios"

@@ -127,7 +127,7 @@ const HorarioAuto = () => {
   };
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto py-6 bg-gray-100 min-h-screen">
       <PageHeader 
         title="Generación Automática de Horarios" 
         description="Genere horarios automáticamente respetando restricciones y disponibilidad"

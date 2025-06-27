@@ -324,7 +324,7 @@ const DisponibilidadDocente = () => {
 
   if (error) {
     return (
-      <div className="container mx-auto py-6">
+      <div className="container mx-auto py-6 bg-gray-100 min-h-screen">
         <PageHeader 
           title="Disponibilidad de Docentes" 
           description="Configuración de horarios disponibles para cada docente"
@@ -345,7 +345,7 @@ const DisponibilidadDocente = () => {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-6 bg-gray-100 min-h-screen space-y-6">
       <PageHeader 
         title="Disponibilidad de Docentes" 
         description="Configuración de horarios disponibles para cada docente"
