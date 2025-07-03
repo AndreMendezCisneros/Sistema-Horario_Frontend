@@ -207,13 +207,13 @@ const Grupos = () => {
           fetchData<{ results: Carrera[] }>("academic-setup/carreras/"),
           fetchData<{ results: Materia[] }>("academic-setup/materias/"),
           fetchData<{ results: PeriodoAcademico[] }>("academic-setup/periodos-academicos/"),
-          fetchData<{ results: Docente[] }>("users/docentes/")
+          fetchData<Docente[]>("users/docentes/")
         ]);
-        
         setCarreras(carrerasResponse.results || []);
         setMaterias(materiasResponse.results || []);
         setPeriodos(periodosResponse.results || []);
-        setDocentes(docentesResponse.results || []);
+        setDocentes(docentesResponse || []);
+        console.log("Docentes recibidos de la API:", docentesResponse);
       } catch (error) {
         console.error("Error loading aux data:", error);
         toast.error("Error al cargar datos auxiliares");
@@ -222,6 +222,33 @@ const Grupos = () => {
 
     loadAuxData();
   }, []);
+
+  // Nuevo useEffect para refrescar el formulario cuando los docentes se cargan y el modal está abierto
+  useEffect(() => {
+    if (isModalOpen && docentes.length > 0) {
+      if (currentGrupo) {
+        form.reset({
+          codigo_grupo: currentGrupo.codigo_grupo,
+          materias: currentGrupo.materias,
+          carrera: currentGrupo.carrera,
+          periodo: currentGrupo.periodo,
+          numero_estudiantes_estimado: currentGrupo.numero_estudiantes_estimado,
+          turno_preferente: currentGrupo.turno_preferente,
+          docente_asignado_directamente: currentGrupo.docente_asignado_directamente,
+        });
+      } else {
+        form.reset({
+          codigo_grupo: "",
+          materias: [],
+          carrera: 0,
+          periodo: 0,
+          numero_estudiantes_estimado: 0,
+          turno_preferente: "M",
+          docente_asignado_directamente: null,
+        });
+      }
+    }
+  }, [docentes, isModalOpen]);
 
   const handleOpenModal = (grupo?: Grupo) => {
     if (grupo) {
@@ -358,6 +385,9 @@ const Grupos = () => {
     },
   ];
 
+  // Log para ver el estado de docentes antes del render
+  console.log("Docentes cargados:", docentes);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -372,6 +402,7 @@ const Grupos = () => {
         title="Gestión de Grupos"
         description="Administre los grupos académicos del sistema"
         onAdd={() => handleOpenModal()}
+        addDisabled={docentes.length === 0}
       />
 
       <DataTable
@@ -586,14 +617,17 @@ const Grupos = () => {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="0">No asignar</SelectItem>
-                        {docentes.map((docente) => (
-                          <SelectItem
-                            key={docente.docente_id}
-                            value={docente.docente_id.toString()}
-                          >
-                            {`${docente.nombres} ${docente.apellidos}`}
-                          </SelectItem>
-                        ))}
+                        {docentes.map((docente) => {
+                          console.log("Renderizando docente:", docente);
+                          return (
+                            <SelectItem
+                              key={docente.docente_id}
+                              value={docente.docente_id.toString()}
+                            >
+                              {`${docente.nombres} ${docente.apellidos}`}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <FormMessage />

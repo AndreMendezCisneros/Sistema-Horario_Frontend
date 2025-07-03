@@ -179,10 +179,15 @@ const HorarioManual = () => {
           const aulasResponse = await fetchData<{ results: Aula[] }>(`academic-setup/espacios-fisicos/?unidad=${selectedUnidad}`);
           const aulasData = aulasResponse?.results ?? [];
           setAulas(aulasData);
-          // Load teachers for this unit (respuesta paginada)
-          const docentesResponse = await fetchData<{ results: Docente[] }>(`users/docentes/?unidad_principal=${selectedUnidad}`);
-          const docentesData = docentesResponse?.results ?? [];
-          setDocentes(docentesData);
+          // Load teachers for this unit (respuesta como array directo)
+          const docentesResponse = await fetchData<Docente[]>(`users/docentes/?unidad_principal=${selectedUnidad}`);
+          console.log("[Depuración] Respuesta de la API de docentes:", docentesResponse);
+          if (Array.isArray(docentesResponse) && docentesResponse.length > 0) {
+            setDocentes(docentesResponse);
+          } else {
+            // Si la respuesta es vacía, no vaciar el estado, solo mostrar advertencia
+            console.warn("[Depuración] La API devolvió un array vacío de docentes. Manteniendo el estado actual.");
+          }
           // Load existing schedules for this grupo and periodo (NO paginada)
           const horariosData = await fetchData<HorarioAsignado[]>(`scheduling/horarios-asignados/?grupo=${selectedGrupo}&periodo=${selectedPeriodo}`);
           setHorarios(horariosData ?? []);
@@ -543,6 +548,11 @@ const HorarioManual = () => {
       toast.error("Error al eliminar el horario");
     }
   };
+  
+  // Log para depuración de cambios en selección y docentes
+  useEffect(() => {
+    console.log("[Depuración] selectedUnidad:", selectedUnidad, "selectedGrupo:", selectedGrupo, "docentes:", docentes);
+  }, [selectedUnidad, selectedGrupo, docentes]);
   
   return (
     <div className="container mx-auto py-6 bg-gray-100 min-h-screen">
