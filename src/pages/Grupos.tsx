@@ -381,7 +381,7 @@ const Grupos = () => {
     {
       header: "Materia",
       key: "materias_detalle",
-      render: (row) => row.materias_detalle.map(md => md.nombre_materia).join(", ") || "N/A",
+      render: (row) => row.materias_detalle.map(md => md.codigo_materia).join(", ") || "N/A",
     },
     {
       header: "Carrera",

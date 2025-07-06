@@ -55,71 +55,179 @@ export const AsignacionModal = ({
   const [selectedDocente, setSelectedDocente] = useState<number | null>(null);
   const [selectedAula, setSelectedAula] = useState<number | null>(null);
   
+  // Reset selections when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedDocente(null);
+      setSelectedAula(null);
+    }
+  }, [isOpen]);
+  
   // Lógica de filtrado con useMemo para eficiencia
   const availableDocentes = useMemo(() => {
-    if (!bloqueId || !materiaId) return [];
+    console.log("=== INICIO FILTRADO DE DOCENTES ===");
+    console.log("Parámetros recibidos:");
+    console.log("- bloqueId:", bloqueId);
+    console.log("- materiaId:", materiaId);
+    console.log("- Total docentes:", docentes.length);
+    console.log("- Total horarios del período:", allPeriodSchedules.length);
+    console.log("- Total disponibilidades:", disponibilidades.length);
+    console.log("- Total materias:", materias.length);
+    
+    if (!bloqueId || !materiaId) {
+      console.log("❌ Faltan bloqueId o materiaId");
+      return [];
+    }
     
     // Encontrar la materia para obtener sus requisitos
     const materiaActual = materias.find(m => m.materia_id === materiaId);
-    const requiredSpecialtyIds = new Set(materiaActual?.especialidades_detalle.map(e => e.especialidad_id));
+    console.log("📚 Materia encontrada:", materiaActual);
+    
+    if (!materiaActual) {
+      console.log("❌ No se encontró la materia");
+      return [];
+    }
+    
+    console.log("🎯 Especialidades requeridas:", materiaActual.especialidades_detalle);
+    
+    const requiredSpecialtyIds = new Set(
+      materiaActual.especialidades_detalle?.map(e => e.especialidad_id) || []
+    );
+    console.log("🔍 IDs de especialidades requeridas:", Array.from(requiredSpecialtyIds));
 
-    // 1. Encontrar docentes ocupados en este bloque
+    // 1. Encontrar docentes ocupados en este bloque específico
     const docentesOcupadosIds = new Set(
       allPeriodSchedules
         .filter(h => h.bloque_horario === bloqueId)
         .map(h => h.docente)
     );
+    console.log("🚫 Docentes ocupados en bloque", bloqueId, ":", Array.from(docentesOcupadosIds));
 
-    // 2. Encontrar docentes NO disponibles en este bloque
+    // 2. Encontrar docentes NO disponibles en este bloque específico
     const docentesNoDisponiblesIds = new Set(
       disponibilidades
         .filter(d => d.bloque_horario === bloqueId && !d.esta_disponible)
         .map(d => d.docente)
     );
+    console.log("⏰ Docentes no disponibles en bloque", bloqueId, ":", Array.from(docentesNoDisponiblesIds));
 
     // Filtrar la lista completa de docentes
-    return docentes.filter(docente => {
+    const docentesFiltrados = docentes.filter(docente => {
+      console.log(`\n👨‍🏫 Analizando docente: ${docente.nombres} ${docente.apellidos} (ID: ${docente.docente_id})`);
+      console.log(`  - Especialidades del docente:`, docente.especialidades_detalle);
+      
       const isNotBusy = !docentesOcupadosIds.has(docente.docente_id);
       const isAvailable = !docentesNoDisponiblesIds.has(docente.docente_id);
       
+      console.log(`  - No ocupado: ${isNotBusy}`);
+      console.log(`  - Disponible: ${isAvailable}`);
+      
       // Si no se requieren especialidades, solo chequear disponibilidad
       if (requiredSpecialtyIds.size === 0) {
-        return isNotBusy && isAvailable;
+        console.log(`  - ✅ No se requieren especialidades específicas`);
+        const result = isNotBusy && isAvailable;
+        console.log(`  - Resultado final: ${result}`);
+        return result;
       }
       
       // Si se requieren, chequear también que el docente tenga al menos una
-      const hasRequiredSpecialty = docente.especialidades_detalle.some(e => requiredSpecialtyIds.has(e.especialidad_id));
+      const hasRequiredSpecialty = docente.especialidades_detalle?.some(e => 
+        requiredSpecialtyIds.has(e.especialidad_id)
+      ) || false;
       
-      return isNotBusy && isAvailable && hasRequiredSpecialty;
+      console.log(`  - Tiene especialidad requerida: ${hasRequiredSpecialty}`);
+      
+      const result = isNotBusy && isAvailable && hasRequiredSpecialty;
+      console.log(`  - Resultado final: ${result}`);
+      
+      return result;
     });
+
+    console.log("✅ Docentes filtrados finales:", docentesFiltrados.map(d => `${d.nombres} ${d.apellidos}`));
+    console.log("=== FIN FILTRADO DE DOCENTES ===\n");
+    return docentesFiltrados;
   }, [bloqueId, materiaId, allPeriodSchedules, disponibilidades, docentes, materias]);
 
   const availableAulas = useMemo(() => {
-    if(!bloqueId || !materiaId) return [];
+    console.log("=== INICIO FILTRADO DE AULAS ===");
+    console.log("Parámetros recibidos:");
+    console.log("- bloqueId:", bloqueId);
+    console.log("- materiaId:", materiaId);
+    console.log("- Total aulas:", aulas.length);
+    console.log("- Total horarios del período:", allPeriodSchedules.length);
+    
+    if(!bloqueId || !materiaId) {
+      console.log("❌ Faltan bloqueId o materiaId");
+      return [];
+    }
 
     // Encontrar la materia para obtener sus requisitos
     const materiaActual = materias.find(m => m.materia_id === materiaId);
-    const requiredSpaceTypeId = materiaActual?.requiere_tipo_espacio_especifico;
+    console.log("📚 Materia encontrada:", materiaActual);
+    
+    if (!materiaActual) {
+      console.log("❌ No se encontró la materia");
+      return [];
+    }
+    
+    console.log("🏢 Tipo de espacio requerido:", materiaActual.requiere_tipo_espacio_especifico);
+    console.log("🏢 Nombre del tipo requerido:", materiaActual.requiere_tipo_espacio_nombre);
+    
+    const requiredSpaceTypeId = materiaActual.requiere_tipo_espacio_especifico;
 
-    // Encontrar aulas ocupadas en este bloque
+    // Encontrar aulas ocupadas en este bloque específico
     const aulasOcupadasIds = new Set(
       allPeriodSchedules
         .filter(h => h.bloque_horario === bloqueId)
         .map(h => h.espacio)
     );
+    console.log("🚫 Aulas ocupadas en bloque", bloqueId, ":", Array.from(aulasOcupadasIds));
+
+    // Mostrar todas las aulas disponibles con sus tipos
+    console.log("📋 Todas las aulas disponibles:");
+    aulas.forEach(aula => {
+      console.log(`  - ${aula.nombre_espacio} (ID: ${aula.espacio_id}, Tipo: ${aula.tipo_espacio})`);
+    });
 
     // Filtrar la lista completa de aulas
-    return aulas.filter(aula => {
+    const aulasFiltradas = aulas.filter(aula => {
+      console.log(`\n🏫 Analizando aula: ${aula.nombre_espacio} (ID: ${aula.espacio_id})`);
+      console.log(`  - Tipo de aula: ${aula.tipo_espacio}`);
+      console.log(`  - Tipo requerido: ${requiredSpaceTypeId}`);
+      
       const isNotOccupied = !aulasOcupadasIds.has(aula.espacio_id);
+      console.log(`  - No ocupada: ${isNotOccupied}`);
       
       // Si no se requiere tipo, solo chequear si está ocupada
       if (!requiredSpaceTypeId) {
-        return isNotOccupied;
+        console.log(`  - ✅ No se requiere tipo específico`);
+        const result = isNotOccupied;
+        console.log(`  - Resultado final: ${result}`);
+        return result;
       }
 
       // Si se requiere, chequear también el tipo de espacio
-      return isNotOccupied && aula.tipo_espacio === requiredSpaceTypeId;
+      const hasCorrectType = aula.tipo_espacio === requiredSpaceTypeId;
+      console.log(`  - Tipo correcto: ${hasCorrectType}`);
+      
+      const result = isNotOccupied && hasCorrectType;
+      console.log(`  - Resultado final: ${result}`);
+      
+      return result;
     });
+
+    console.log("✅ Aulas filtradas finales:", aulasFiltradas.map(a => a.nombre_espacio));
+    
+    // Si no hay aulas del tipo requerido, mostrar advertencia
+    if (requiredSpaceTypeId && aulasFiltradas.length === 0) {
+      console.log("⚠️ ADVERTENCIA: No hay aulas del tipo requerido disponibles");
+      console.log(`   - Tipo requerido: ${requiredSpaceTypeId} (${materiaActual.requiere_tipo_espacio_nombre})`);
+      console.log(`   - Aulas disponibles: ${aulas.length}`);
+      console.log(`   - Tipos de aulas disponibles:`, [...new Set(aulas.map(a => a.tipo_espacio))]);
+    }
+    
+    console.log("=== FIN FILTRADO DE AULAS ===\n");
+    return aulasFiltradas;
   }, [bloqueId, materiaId, allPeriodSchedules, aulas, materias]);
   
   const handleSave = () => {
@@ -144,30 +252,72 @@ export const AsignacionModal = ({
     }
   };
 
+  // Verificar si hay problemas con los filtros
+  const materiaActual = materias.find(m => m.materia_id === materiaId);
+  const hasAulaProblem = materiaActual?.requiere_tipo_espacio_especifico && availableAulas.length === 0;
+  const hasDocenteProblem = materiaActual?.especialidades_detalle?.length > 0 && availableDocentes.length === 0;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Asignar Docente y Aula</DialogTitle>
           <DialogDescription>
             Asignando <span className="font-semibold text-academic-primary">{materiaNombre}</span> en el bloque <span className="font-semibold text-academic-primary">{bloqueNombre}</span>.
           </DialogDescription>
         </DialogHeader>
+        
+        {/* Mostrar advertencias si hay problemas */}
+        {hasAulaProblem && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
+            <p className="text-yellow-800 text-sm">
+              ⚠️ <strong>Problema con aulas:</strong> Esta materia requiere aulas de tipo "{materiaActual?.requiere_tipo_espacio_nombre}" pero no hay disponibles.
+            </p>
+          </div>
+        )}
+        
+        {hasDocenteProblem && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
+            <p className="text-yellow-800 text-sm">
+              ⚠️ <strong>Problema con docentes:</strong> Esta materia requiere especialidades específicas pero no hay docentes disponibles con esas especialidades.
+            </p>
+          </div>
+        )}
+        
         <div className="grid gap-4 py-4">
           <>
             <div className="space-y-2">
-              <Label htmlFor="docente">Docente Disponible</Label>
+              <Label htmlFor="docente">Docente Disponible ({availableDocentes.length})</Label>
               <Select onValueChange={(value) => setSelectedDocente(Number(value))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar docente" />
                 </SelectTrigger>
                 <SelectContent>
                   {availableDocentes.length > 0 ? (
-                    availableDocentes.map(docente => (
-                      <SelectItem key={docente.docente_id} value={String(docente.docente_id)}>
-                        {docente.nombres} {docente.apellidos}
-                      </SelectItem>
-                    ))
+                    availableDocentes.map(docente => {
+                      // Buscar la especialidad relevante para la materia
+                      let especialidadRelevante = '';
+                      if (materias.length > 0) {
+                        const materiaActual = materias.find(m => m.materia_id === materiaId);
+                        if (materiaActual && materiaActual.especialidades_detalle.length > 0) {
+                          const requiredSpecialtyIds = new Set(materiaActual.especialidades_detalle.map(e => e.especialidad_id));
+                          const match = docente.especialidades_detalle.find(e => requiredSpecialtyIds.has(e.especialidad_id));
+                          if (match) {
+                            especialidadRelevante = match.nombre_especialidad;
+                          }
+                        }
+                      }
+                      return (
+                        <SelectItem key={docente.docente_id} value={String(docente.docente_id)}>
+                          {docente.nombres} {docente.apellidos}
+                          {especialidadRelevante && (
+                            <span className="text-gray-500 ml-2">
+                              ({especialidadRelevante})
+                            </span>
+                          )}
+                        </SelectItem>
+                      );
+                    })
                   ) : (
                     <div className="p-4 text-center text-sm text-gray-500">
                       No hay docentes disponibles para este bloque.
@@ -177,7 +327,7 @@ export const AsignacionModal = ({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="aula">Aula Disponible</Label>
+              <Label htmlFor="aula">Aula Disponible ({availableAulas.length})</Label>
               <Select onValueChange={(value) => setSelectedAula(Number(value))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar aula" />

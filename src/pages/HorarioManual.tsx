@@ -175,10 +175,38 @@ const HorarioManual = () => {
       const loadAsignacionData = async () => {
         setIsLoading(true);
         try {
-          // Load classrooms for this unit (respuesta paginada)
-          const aulasResponse = await fetchData<{ results: Aula[] }>(`academic-setup/espacios-fisicos/?unidad=${selectedUnidad}`);
-          const aulasData = aulasResponse?.results ?? [];
+          // Función para cargar todas las páginas de aulas
+          const loadAllAulas = async (unidadId: number): Promise<Aula[]> => {
+            let allAulas: Aula[] = [];
+            let nextUrl = `academic-setup/espacios-fisicos/?unidad=${unidadId}`;
+            
+            while (nextUrl) {
+              try {
+                const response = await client.get(nextUrl);
+                const data = response.data;
+                
+                if (data.results) {
+                  allAulas = [...allAulas, ...data.results];
+                }
+                
+                // Verificar si hay más páginas
+                nextUrl = data.next ? data.next.replace('http://localhost:8000/api/', '') : null;
+                
+                console.log(`[Aulas] Cargadas ${data.results?.length || 0} aulas de esta página. Total acumulado: ${allAulas.length}`);
+              } catch (error: unknown) {
+                console.error("Error cargando página de aulas:", error);
+                break;
+              }
+            }
+            
+            console.log(`[Aulas] Total de aulas cargadas: ${allAulas.length}`);
+            return allAulas;
+          };
+
+          // Load all classrooms for this unit (todas las páginas)
+          const aulasData = await loadAllAulas(selectedUnidad);
           setAulas(aulasData);
+          
           // Load teachers for this unit (respuesta como array directo)
           const docentesResponse = await fetchData<Docente[]>(`users/docentes/?unidad_principal=${selectedUnidad}`);
           console.log("[Depuración] Respuesta de la API de docentes:", docentesResponse);
@@ -371,9 +399,10 @@ const HorarioManual = () => {
       
       toast.success("Horario asignado correctamente");
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error asignando horario:", error);
-      const errorMsg = error.response?.data?.detail || "Error al asignar el horario.";
+      const axiosError = error as { response?: { data?: { detail?: string } } };
+      const errorMsg = axiosError?.response?.data?.detail || "Error al asignar el horario.";
       toast.error(errorMsg);
     } finally {
       setIsSaving(false);
@@ -748,6 +777,7 @@ const HorarioManual = () => {
                       <thead>
                         <tr className="bg-gray-100 border-b">
                           <th className="p-3 text-left">Día</th>
+                          <th className="p-3 text-left">Materia</th>
                           <th className="p-3 text-left">Horario</th>
                           <th className="p-3 text-left">Docente</th>
                           <th className="p-3 text-left">Aula</th>
@@ -760,11 +790,13 @@ const HorarioManual = () => {
                           const bloque = bloques.find(b => b.bloque_def_id === horario.bloque_horario);
                           const docente = docentes.find(d => d.docente_id === horario.docente);
                           const aula = aulas.find(a => a.espacio_id=== horario.espacio);
-                          
+                          const grupo = grupos.find(g => g.grupo_id === horario.grupo);
+                          const materia = grupo?.materias_detalle?.[0]?.nombre_materia || 'N/A';
                           return (
                             <tr key={horario.horario_id} className="border-b hover:bg-gray-50">
                               <td className="p-3">{dia?.nombre || `ID: ${horario.dia_semana}`}</td>
-                                <td className="p-3">{bloque ? bloque.nombre_bloque : `ID: ${horario.bloque_horario}`}</td>
+                              <td className="p-3">{materia}</td>
+                              <td className="p-3">{bloque ? bloque.nombre_bloque : `ID: ${horario.bloque_horario}`}</td>
                               <td className="p-3">{docente ? `${docente.nombres} ${docente.apellidos}` : `ID: ${horario.docente}`}</td>
                               <td className="p-3">{aula ? aula.nombre_espacio : `ID: ${horario.espacio}`}</td>
                               <td className="p-3 text-center">
@@ -795,29 +827,33 @@ const HorarioManual = () => {
       </div>
       </DndContext>
       
-      {asignacionPendiente && (
-        <AsignacionModal 
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSave={handleSaveAsignacion}
-          materiaId={asignacionPendiente.materiaId}
-          materiaNombre={
-            materias.find(m => m.materia_id === asignacionPendiente.materiaId)?.nombre_materia ?? 'Desconocida'
-          }
-          bloqueId={asignacionPendiente.bloqueId}
-          bloqueNombre={
-            bloques.find(b => b.bloque_def_id === asignacionPendiente.bloqueId)?.nombre_bloque ?? 'Desconocido'
-          }
-          periodoId={selectedPeriodo}
-          allPeriodSchedules={allPeriodSchedules}
-          aulas={aulas}
-          bloques={bloques}
-          docentes={docentes}
-          disponibilidades={allPeriodAvailabilities}
-          materias={materias}
-          grupo={selectedGrupo ? grupos.find(g => g.grupo_id === selectedGrupo) ?? null : null}
-        />
-      )}
+      {asignacionPendiente && (() => {
+        const grupoSeleccionado = grupos.find(g => g.grupo_id === selectedGrupo);
+        const materiaEnGrupo = grupoSeleccionado?.materias_detalle?.find(m => m.materia_id === asignacionPendiente.materiaId);
+        const materiasDelGrupo = grupoSeleccionado?.materias_detalle ?? [];
+        
+        return (
+          <AsignacionModal 
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onSave={handleSaveAsignacion}
+            materiaId={asignacionPendiente.materiaId}
+            materiaNombre={materiaEnGrupo?.nombre_materia ?? 'Desconocida'}
+            bloqueId={asignacionPendiente.bloqueId}
+            bloqueNombre={
+              bloques.find(b => b.bloque_def_id === asignacionPendiente.bloqueId)?.nombre_bloque ?? 'Desconocido'
+            }
+            periodoId={selectedPeriodo}
+            allPeriodSchedules={allPeriodSchedules}
+            aulas={aulas}
+            bloques={bloques}
+            docentes={docentes}
+            disponibilidades={allPeriodAvailabilities}
+            materias={materiasDelGrupo}
+            grupo={selectedGrupo ? grupos.find(g => g.grupo_id === selectedGrupo) ?? null : null}
+          />
+        );
+      })()}
 
       {(isLoading || isSaving) && (
         <div className="fixed inset-0 bg-gray-900/20 flex items-center justify-center z-50">

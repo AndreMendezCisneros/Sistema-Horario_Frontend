@@ -53,8 +53,7 @@ const createUserSchema = z.object({
 const editUserSchema = z.object({
   username: z.string().min(1, "El usuario es obligatorio"),
   email: z.string().email("Correo inválido"),
-  first_name: z.string().min(1, "El nombre es obligatorio"),
-  last_name: z.string().min(1, "El apellido es obligatorio"),
+  password: z.string().optional(),
   groups: z.array(z.number()).min(1, "Selecciona al menos un rol"),
 });
 
@@ -87,8 +86,7 @@ const Usuarios = () => {
     defaultValues: {
       username: "",
       email: "",
-      first_name: "",
-      last_name: "",
+      password: "",
       groups: [],
     },
   });
@@ -131,8 +129,7 @@ const Usuarios = () => {
       editForm.reset({
         username: user.username,
         email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
+        password: "",
         groups: user.groups.map(g => g.id),
       });
     } else {
@@ -155,6 +152,9 @@ const Usuarios = () => {
       if (!isValid || !currentUser) return;
       setIsSaving(true);
       const values = editForm.getValues();
+      if (!values.password) {
+        delete values.password;
+      }
       try {
         await updateItem<User>("users/all/", currentUser.id, values);
         toast.success("Usuario actualizado exitosamente.");
@@ -186,11 +186,9 @@ const Usuarios = () => {
   const columns = [
     { key: "username", header: "Usuario" },
     { key: "email", header: "Correo" },
-    { key: "first_name", header: "Nombre" },
-    { key: "last_name", header: "Apellido" },
     { key: "is_active", header: "Activo", render: (row: User) => row.is_active ? "Sí" : "No" },
-    { key: "is_staff", header: "Staff", render: (row: User) => row.is_staff ? "Sí" : "No" },
-    { key: "groups", header: "Roles", render: (row: User) => row.groups.map(g => g.name).join(", ") },
+    { key: "groups", header: "Rol", render: (row: User) => row.groups.map(g => g.name).join(", ") },
+    { key: "password", header: "Contraseña", render: () => "••••••" },
     {
       key: "actions",
       header: "Acciones",
@@ -274,25 +272,12 @@ const Usuarios = () => {
                 />
                 <FormField
                   control={editForm.control}
-                  name="first_name"
+                  name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nombre</FormLabel>
+                      <FormLabel>Nueva Contraseña</FormLabel>
                       <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="last_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Apellido</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
+                        <Input type="password" {...field} placeholder="Dejar en blanco para no cambiar" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

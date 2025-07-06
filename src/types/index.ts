@@ -32,6 +32,7 @@ export interface Especialidad {
 
 export interface MateriaDetalle extends Materia {
   requiere_tipo_espacio_especifico: number | null;
+  requiere_tipo_espacio_nombre?: string;
   especialidades_detalle: Especialidad[];
 }
 

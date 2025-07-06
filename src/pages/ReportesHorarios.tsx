@@ -427,6 +427,18 @@ const ReportesHorarios = () => {
     }
   }, [horarios]);
 
+  // Agrupar bloques horarios por franja horaria única (ignorando el día)
+  const bloquesUnicos = Array.from(
+    new Map(
+      bloques.map(b => [`${b.hora_inicio}-${b.hora_fin}`, b])
+    ).values()
+  );
+
+  useEffect(() => {
+    setHorarios([]);
+    setHorariosCeldas([]);
+  }, [selectedUnidad, selectedCarrera, selectedGrupo]);
+
   return (
     <div className="container mx-auto py-6 bg-gray-100 min-h-screen">
       <PageHeader 
@@ -675,30 +687,43 @@ const ReportesHorarios = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {bloques.map(bloque => (
-                    <tr key={bloque.bloque_def_id}>
-                      <td className="border border-gray-300 px-2 py-2 text-center text-xs font-medium text-gray-700">
-                        {bloque.hora_inicio.slice(0, 5)} - {bloque.hora_fin.slice(0, 5)}
+                  {bloquesUnicos.length === 0 || horarios.length === 0 ? (
+                    <tr>
+                      <td colSpan={diasSemana.length + 1} className="text-center text-gray-400 py-8">
+                        No hay horarios asignados para la unidad académica seleccionada.
                       </td>
-                      {diasSemana.map(dia => {
-                        const celda = getHorarioPorDiaBloque(dia.id, bloque.bloque_def_id);
-                        return (
-                          <td key={`${dia.id}-${bloque.bloque_def_id}`} className="border border-gray-300 h-24 w-40 text-center align-top p-1">
-                            {celda ? (
-                              <div className="w-full h-full rounded-md p-2 text-left text-xs flex flex-col justify-center" style={{ backgroundColor: celda.color }}>
-                                <div className="font-bold truncate" title={celda.materia}>{celda.materia}</div>
-                                {activeTab !== 'grupo' && <div className="truncate" title={celda.grupo}>Grupo: {celda.grupo}</div>}
-                                {activeTab !== 'docente' && <div className="truncate" title={celda.docente}>{celda.docente}</div>}
-                                {activeTab !== 'aula' && <div className="truncate" title={celda.aula}>Aula: {celda.aula}</div>}
-                              </div>
-                            ) : (
-                              <div className="w-full h-full"></div>
-                            )}
-                          </td>
-                        );
-                      })}
                     </tr>
-                  ))}
+                  ) : (
+                    bloquesUnicos.map((bloque) => (
+                      <tr key={`${bloque.hora_inicio}-${bloque.hora_fin}`}>
+                        <td className="border border-gray-300 px-2 py-2 text-center text-xs font-medium text-gray-700">
+                          {bloque.hora_inicio.slice(0, 5)} - {bloque.hora_fin.slice(0, 5)}
+                        </td>
+                        {diasSemana.map((dia) => {
+                          const bloqueDia = bloques.find(
+                            b => b.hora_inicio === bloque.hora_inicio && b.hora_fin === bloque.hora_fin && b.dia_semana === dia.id
+                          );
+                          const celda = horariosCeldas.find(
+                            h => h.diaId === dia.id && h.bloqueId === (bloqueDia ? bloqueDia.bloque_def_id : -1)
+                          );
+                          return (
+                            <td key={`${dia.id}-${bloque.hora_inicio}-${bloque.hora_fin}`} className="border border-gray-300 h-24 w-40 text-center align-top p-1">
+                              {celda ? (
+                                <div className="w-full h-full rounded-md p-2 text-left text-xs flex flex-col justify-center" style={{ backgroundColor: celda.color }}>
+                                  <div className="font-bold truncate" title={celda.materia}>{celda.materia}</div>
+                                  {activeTab !== 'grupo' && <div className="truncate" title={celda.grupo}>Grupo: {celda.grupo}</div>}
+                                  {activeTab !== 'docente' && <div className="truncate" title={celda.docente}>{celda.docente}</div>}
+                                  {activeTab !== 'aula' && <div className="truncate" title={celda.aula}>Aula: {celda.aula}</div>}
+                                </div>
+                              ) : (
+                                <div className="w-full h-full"></div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

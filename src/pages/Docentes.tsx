@@ -312,13 +312,11 @@ const Docentes = () => {
       key: "especialidades",
       header: "Especialidades",
       render: (row: Docente) => (
-        <div className="flex flex-wrap gap-1">
+        <ul className="list-disc list-inside space-y-1">
           {row.especialidades_detalle.map(e => (
-            <Badge key={e.especialidad_id} variant="secondary">
-              {e.nombre_especialidad}
-            </Badge>
+            <li key={e.especialidad_id}>{e.nombre_especialidad}</li>
           ))}
-        </div>
+        </ul>
       )
     },
   ];

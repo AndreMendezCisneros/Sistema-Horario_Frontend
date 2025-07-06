@@ -75,6 +75,14 @@ interface Materia {
   especialidades_detalle: Especialidad[];
 }
 
+interface CarreraMateria {
+  id: number;
+  carrera: number;
+  materia: number;
+  ciclo: number | null;
+  ciclo_nombre: string | null;
+}
+
 const Materias = () => {
   const { id: carreraId, unidadId } = useParams<{ id: string, unidadId: string }>();
   const [carrera, setCarrera] = useState<Carrera | null>(null);
@@ -91,6 +99,8 @@ const Materias = () => {
   const [pagination, setPagination] = useState({ count: 0, page: 1, pageSize: 10 });
   const [currentCarrera, setCurrentCarrera] = useState<Carrera | null>(null);
   const [allCarreras, setAllCarreras] = useState<Carrera[]>([]);
+  const [carreraMaterias, setCarreraMaterias] = useState<CarreraMateria[]>([]);
+  const [cicloPorMateria, setCicloPorMateria] = useState<Record<number, string[]>>({});
 
   // Validar que el ID de la carrera sea válido
   useEffect(() => {
@@ -169,6 +179,45 @@ const Materias = () => {
     loadAuxData();
     loadMaterias(1);
   }, [carreraId, navigate]);
+
+  useEffect(() => {
+    if (!carreraId) return;
+    const fetchAllCarreraMaterias = async () => {
+      let allResults: CarreraMateria[] = [];
+      let page = 1;
+      let hasNext = true;
+      let totalPages = 0;
+      try {
+        while (hasNext) {
+          const response = await fetchData<{ results: CarreraMateria[], next: string | null }>(`academic-setup/carrera-materias/?carrera=${carreraId}&page=${page}`);
+          allResults = allResults.concat(response.results || []);
+          hasNext = !!response.next;
+          page++;
+          totalPages++;
+          console.log(`[CarreraMaterias] Página ${page - 1} cargada, resultados acumulados:`, allResults.length);
+        }
+        setCarreraMaterias(allResults);
+        // Crear un mapa materia_id -> lista de ciclos
+        const map: Record<number, string[]> = {};
+        (allResults || []).forEach(cm => {
+          if (cm.materia) {
+            if (!map[cm.materia]) map[cm.materia] = [];
+            if (cm.ciclo_nombre && !map[cm.materia].includes(cm.ciclo_nombre)) {
+              map[cm.materia].push(cm.ciclo_nombre);
+            }
+          }
+        });
+        console.log(`[CarreraMaterias] Total páginas: ${totalPages}, Total relaciones: ${allResults.length}`);
+        console.log('[CarreraMaterias] Mapeo final materia_id -> ciclos:', map);
+        setCicloPorMateria(map);
+      } catch (error) {
+        setCarreraMaterias([]);
+        setCicloPorMateria({});
+        console.error('[CarreraMaterias] Error al cargar relaciones:', error);
+      }
+    };
+    fetchAllCarreraMaterias();
+  }, [carreraId]);
 
   // Schema for form validation
   const formSchema = z.object({
@@ -289,10 +338,7 @@ const Materias = () => {
 
     try {
       if (currentMateria) {
-        // Al actualizar, no se deben enviar los campos de relación
-        // que el backend no espera en el método PUT.
         const { carreras, ciclo_id, ...updateData } = values;
-
         await updateItem<Materia>(
           "academic-setup/materias/",
           currentMateria.materia_id,
@@ -301,13 +347,12 @@ const Materias = () => {
         toast.success("Materia actualizada exitosamente.");
         loadMaterias(pagination.page);
       } else {
-        // Create new materia
         await createItem<Materia>(
           "academic-setup/materias/", 
           values
         );
         toast.success("Materia creada y asignada a la carrera exitosamente");
-        loadMaterias(1); // Reset to first page
+        loadMaterias(1);
       }
       handleCloseModal();
     } catch (error) {
@@ -357,6 +402,20 @@ const Materias = () => {
       header: "Horas Totales", 
       render: (row: Materia) => `${row.horas_totales}`
     },
+    {
+      key: "ciclo",
+      header: "Ciclo",
+      render: (row: Materia) => {
+        const ciclos = cicloPorMateria[row.materia_id];
+        return ciclos && ciclos.length > 0 ? (
+          <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs font-medium">
+            {ciclos.join(", ")}
+          </span>
+        ) : (
+          <span className="text-gray-400">Sin ciclo</span>
+        );
+      }
+    },
     { 
       key: "requiere_tipo_espacio_especifico", 
       header: "Espacio Requerido",
@@ -372,9 +431,7 @@ const Materias = () => {
         return (
           <div className="flex flex-wrap gap-1">
             {row.especialidades_detalle.map(e => (
-              <Badge key={e.especialidad_id} variant="secondary">
-                {e.nombre_especialidad}
-              </Badge>
+              <span key={e.especialidad_id} className="bg-gray-200 text-gray-800 rounded px-2 py-0.5 text-xs">{e.nombre_especialidad}</span>
             ))}
           </div>
         );

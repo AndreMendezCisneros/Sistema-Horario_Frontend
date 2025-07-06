@@ -31,6 +31,7 @@ interface HorarioAsignado {
   espacio_detalle: { nombre_espacio: string };
   dia_semana: number;
   bloque_horario: number;
+  bloque_nombre?: string;
 }
 
 const DashboardAdmin = () => {
@@ -55,6 +56,10 @@ const DashboardAdmin = () => {
     { name: 'Vie', generados: 7, conflictos: 2, tiempo: 9 },
     { name: 'Sáb', generados: 4, conflictos: 1, tiempo: 11 },
   ]);
+  const [periodos, setPeriodos] = useState<{periodo_id: number, nombre_periodo: string}[]>([]);
+  const [grupos, setGrupos] = useState<{grupo_id: number, codigo_grupo: string}[]>([]);
+  const [selectedPeriodo, setSelectedPeriodo] = useState<number | null>(null);
+  const [selectedGrupo, setSelectedGrupo] = useState<number | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -111,12 +116,22 @@ const DashboardAdmin = () => {
       }
     };
 
-    // Cargar algunos horarios asignados
+    // Cargar periodos y grupos para los filtros
+    const fetchPeriodosYGrupos = async () => {
+      try {
+        const periodosRes = await client.get('academic-setup/periodos-academicos/');
+        setPeriodos(periodosRes.data.results || []);
+        const gruposRes = await client.get('scheduling/grupos/');
+        setGrupos(gruposRes.data.results || []);
+      } catch (error) { /* Ignorado intencionalmente */ }
+    };
+
+    // Refrescar horarios al cambiar filtros
     const fetchHorarios = async () => {
       try {
         const res = await client.get('scheduling/horarios-asignados/?page=1');
-        if (res.data && res.data.results) {
-          setHorarios(res.data.results.slice(0, 5)); // Solo los primeros 5
+        if (Array.isArray(res.data)) {
+          setHorarios(res.data.slice(0, 5));
         }
       } catch (error) {
         // Puedes mostrar un toast si quieres
@@ -125,6 +140,7 @@ const DashboardAdmin = () => {
 
     fetchData();
     fetchRestricciones();
+    fetchPeriodosYGrupos();
     fetchHorarios();
   }, []);
 
@@ -255,26 +271,24 @@ const DashboardAdmin = () => {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="text-gray-600">
-                <th className="py-1">Docente</th>
-                <th className="py-1">Materia</th>
-                <th className="py-1">Grupo</th>
-                <th className="py-1">Aula</th>
                 <th className="py-1">Día</th>
-                <th className="py-1">Bloque</th>
+                <th className="py-1">Materia</th>
+                <th className="py-1">Horario</th>
+                <th className="py-1">Docente</th>
+                <th className="py-1">Aula</th>
               </tr>
             </thead>
             <tbody>
               {horarios.length === 0 ? (
-                <tr><td colSpan={6} className="py-2 text-gray-400">No hay horarios asignados.</td></tr>
+                <tr><td colSpan={5} className="py-2 text-gray-400">No hay horarios asignados.</td></tr>
               ) : (
                 horarios.map(h => (
                   <tr key={h.horario_id}>
-                    <td className="py-1">{h.docente_detalle.nombres} {h.docente_detalle.apellidos}</td>
-                    <td className="py-1">{h.materia_detalle.nombre_materia}</td>
-                    <td className="py-1">{h.grupo_detalle.codigo_grupo}</td>
-                    <td className="py-1">{h.espacio_detalle.nombre_espacio}</td>
-                    <td className="py-1">{['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][h.dia_semana-1]}</td>
-                    <td className="py-1">{h.bloque_horario}</td>
+                    <td className="py-1">{['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'][h.dia_semana-1]}</td>
+                    <td className="py-1">{h.materia_detalle?.nombre_materia || '-'}</td>
+                    <td className="py-1">{h.bloque_nombre || h.bloque_horario || '-'}</td>
+                    <td className="py-1">{h.docente_detalle?.nombres} {h.docente_detalle?.apellidos}</td>
+                    <td className="py-1">{h.espacio_detalle?.nombre_espacio || '-'}</td>
                   </tr>
                 ))
               )}
