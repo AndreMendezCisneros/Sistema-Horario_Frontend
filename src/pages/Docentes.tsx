@@ -83,11 +83,39 @@ const Docentes = () => {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [especialidades, setEspecialidades] = useState<Especialidad[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingEspecialidades, setIsLoadingEspecialidades] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [currentDocente, setCurrentDocente] = useState<Docente | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [pagination, setPagination] = useState({ count: 0, page: 1, pageSize: 10 });
+  
+  // Función para cargar todas las páginas de especialidades
+  const loadAllEspecialidades = async (): Promise<Especialidad[]> => {
+    setIsLoadingEspecialidades(true);
+    const allEspecialidades: Especialidad[] = [];
+    let page = 1;
+    let hasMore = true;
+    
+    while (hasMore) {
+      try {
+        const response = await fetchData<ApiResponse<Especialidad>>(`academic-setup/especialidades/?page=${page}`);
+        if (response && 'results' in response) {
+          allEspecialidades.push(...response.results);
+          hasMore = !!response.next;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      } catch (error) {
+        console.error(`Error cargando página ${page} de especialidades:`, error);
+        hasMore = false;
+      }
+    }
+    
+    setIsLoadingEspecialidades(false);
+    return allEspecialidades;
+  };
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -143,12 +171,12 @@ const Docentes = () => {
         const [unidadesResponse, usuariosResponse, especialidadesResponse] = await Promise.all([
           fetchData<UnidadAcademica[] | ApiResponse<UnidadAcademica>>("academic-setup/unidades-academicas/"),
           fetchData<Usuario[] | ApiResponse<Usuario>>("users/all/"),
-          fetchData<Especialidad[] | ApiResponse<Especialidad>>("academic-setup/especialidades/")
+          loadAllEspecialidades()
         ]);
         
         setUnidades('results' in unidadesResponse ? unidadesResponse.results : unidadesResponse);
         setUsuarios('results' in usuariosResponse ? usuariosResponse.results : usuariosResponse);
-        setEspecialidades('results' in especialidadesResponse ? especialidadesResponse.results : especialidadesResponse);
+        setEspecialidades(especialidadesResponse);
 
       } catch (error) {
         console.error("Error loading aux data:", error);
@@ -535,13 +563,22 @@ const Docentes = () => {
                   <FormItem>
                     <FormLabel>Especialidades</FormLabel>
                     <FormControl>
-                      <MultiSelect
-                        options={especialidades.map(e => ({ value: String(e.especialidad_id), label: e.nombre_especialidad }))}
-                        onValueChange={(values) => field.onChange(values.map(Number))}
-                        defaultValue={field.value?.map(String) || []}
-                        placeholder="Seleccionar especialidades..."
-                        className="bg-transparent"
-                      />
+                      {isLoadingEspecialidades ? (
+                        <div className="flex items-center space-x-2 p-3 border rounded-md bg-muted">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-sm text-muted-foreground">
+                            Cargando todas las especialidades...
+                          </span>
+                        </div>
+                      ) : (
+                        <MultiSelect
+                          options={especialidades.map(e => ({ value: String(e.especialidad_id), label: e.nombre_especialidad }))}
+                          onValueChange={(values) => field.onChange(values.map(Number))}
+                          defaultValue={field.value?.map(String) || []}
+                          placeholder={`Seleccionar especialidades... (${especialidades.length} disponibles)`}
+                          className="bg-transparent"
+                        />
+                      )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>

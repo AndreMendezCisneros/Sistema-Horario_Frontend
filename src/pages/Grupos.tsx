@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -81,7 +82,7 @@ interface Grupo {
 interface Column {
   header: string;
   key: string;
-  render?: (row: any) => React.ReactNode;
+  render?: (row: Grupo) => React.ReactNode;
 }
 
 // Schema for form validation
@@ -106,6 +107,10 @@ const turnos = [
 ];
 
 const Grupos = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const periodoId = searchParams.get('periodo');
+  
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [carreras, setCarreras] = useState<Carrera[]>([]);
   const [materias, setMaterias] = useState<Materia[]>([]);
@@ -137,7 +142,19 @@ const Grupos = () => {
   const loadGrupos = async (page: number) => {
     setIsLoading(true);
     try {
-      const response = await fetchData<{ results: Grupo[], count: number }>(`scheduling/grupos/?page=${page}`);
+      // Construir la URL con filtros
+      let url = `scheduling/grupos/?page=${page}`;
+      if (periodoId) {
+        url += `&periodo=${periodoId}`;
+      }
+      
+      // Agregar filtro por carrera si está disponible en los parámetros de URL
+      const carreraId = searchParams.get('carrera');
+      if (carreraId) {
+        url += `&carrera=${carreraId}`;
+      }
+      
+      const response = await fetchData<{ results: Grupo[], count: number }>(url);
       setGrupos(response.results || []);
       setPagination(prev => ({ ...prev, count: response.count || 0, page }));
     } catch (error) {
@@ -222,6 +239,13 @@ const Grupos = () => {
 
     loadAuxData();
   }, []);
+
+  // Recargar grupos cuando cambie el período o la carrera
+  useEffect(() => {
+    if (periodoId) {
+      loadGrupos(1);
+    }
+  }, [periodoId, searchParams.get('carrera')]);
 
   // Nuevo useEffect para refrescar el formulario cuando los docentes se cargan y el modal está abierto
   useEffect(() => {
@@ -398,12 +422,63 @@ const Grupos = () => {
 
   return (
     <div className="container mx-auto py-6 bg-gray-100 min-h-screen">
-      <PageHeader
-        title="Gestión de Grupos"
-        description="Administre los grupos académicos del sistema"
-        onAdd={() => handleOpenModal()}
-        addDisabled={docentes.length === 0}
-      />
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Gestión de Grupos</h1>
+          <p className="text-gray-500">
+            {periodoId 
+              ? `Grupos del período seleccionado` 
+              : "Administre los grupos académicos del sistema"
+            }
+          </p>
+          
+          {/* Información del período y carrera seleccionados */}
+          {periodoId && (
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-medium">Período:</span>
+                <span className="text-blue-600">
+                  {periodos.find(p => p.periodo_id.toString() === periodoId)?.nombre_periodo || 'Cargando...'}
+                </span>
+              </div>
+              
+              {searchParams.get('carrera') && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-medium">Carrera:</span>
+                  <span className="text-green-600">
+                    {carreras.find(c => c.carrera_id.toString() === searchParams.get('carrera'))?.nombre_carrera || 'Cargando...'}
+                  </span>
+                </div>
+              )}
+              
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => navigate('/admin/periodos-academicos')}
+                  className="text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  ← Volver a Períodos Académicos
+                </button>
+                
+                {searchParams.get('carrera') && (
+                  <button
+                    onClick={() => navigate(`/admin/seleccion-carrera?periodo=${periodoId}`)}
+                    className="text-green-600 hover:text-green-800 text-sm"
+                  >
+                    ← Cambiar Carrera
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={() => handleOpenModal()}
+          className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-5 py-2 rounded-lg shadow transition-all"
+          disabled={docentes.length === 0}
+        >
+          + Agregar Grupo
+        </button>
+      </div>
 
       <DataTable
         data={grupos}

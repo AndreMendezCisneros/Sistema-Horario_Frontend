@@ -15,7 +15,9 @@ import {
   Settings,
   Grid,
   Download,
-  Clock
+  Clock,
+  CalendarDays,
+  User
 } from 'lucide-react';
 import DarkModeToggle from './DarkModeToggle';
 import {
@@ -37,9 +39,10 @@ const Sidebar = () => {
   const adminLinks = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: 'Unidades Académicas', path: '/admin/unidades', icon: <Building className="w-5 h-5" /> },
+    { name: 'Períodos Académicos', path: '/admin/periodos-academicos', icon: <CalendarDays className="w-5 h-5" /> },
+    { name: 'Usuarios', path: '/admin/usuarios', icon: <User className="w-5 h-5" /> },
     { name: 'Docentes', path: '/admin/docentes', icon: <Users className="w-5 h-5" /> },
     { name: 'Aulas', path: '/admin/aulas', icon: <Grid className="w-5 h-5" /> },
-    { name: 'Grupos/Secciones', path: '/admin/grupos', icon: <Users className="w-5 h-5" /> },
     { name: 'Disponibilidad', path: '/admin/disponibilidad', icon: <Calendar className="w-5 h-5" /> },
     { name: 'Horarios Manual', path: '/admin/horarios/manual', icon: <ClipboardList className="w-5 h-5" /> },
     { name: 'Horarios Automático', path: '/admin/horarios/automatico', icon: <ClipboardCheck className="w-5 h-5" /> },

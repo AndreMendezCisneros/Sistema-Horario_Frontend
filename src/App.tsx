@@ -31,6 +31,9 @@ import ReportesHorarios from "./pages/ReportesHorarios";
 import Restricciones from "./pages/Restricciones";
 import Ciclos from "./pages/Ciclos";
 import MiHorarioDocente from "./pages/MiHorarioDocente";
+import PeriodoAcademico from "./pages/PeriodoAcademico";
+import SeleccionCarrera from "./pages/SeleccionCarrera";
+import Usuarios from "./pages/Usuarios";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +69,7 @@ const App = () => (
                   <Route path="/admin/unidades" element={<UnidadesAcademicas />} />
                   <Route path="/admin/unidades/:id/carreras" element={<Carreras />} />
                   <Route path="/admin/carreras/:id/materias" element={<Materias />} />
+                  <Route path="/admin/usuarios" element={<Usuarios />} />
                   <Route path="/admin/docentes" element={<Docentes />} />
                   <Route path="/admin/aulas" element={<Aulas />} />
                   <Route path="/admin/grupos" element={<Grupos />} />
@@ -75,6 +79,8 @@ const App = () => (
                   <Route path="/admin/reportes" element={<ReportesHorarios />} />
                   <Route path="/admin/restricciones" element={<Restricciones />} />
                   <Route path="/admin/ciclos" element={<Ciclos />} />
+                  <Route path="/admin/periodos-academicos" element={<PeriodoAcademico />} />
+                  <Route path="/admin/seleccion-carrera" element={<SeleccionCarrera />} />
                 </Route>
 
                 {/* Protected Teacher routes */}
