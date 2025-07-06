@@ -13,6 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import React from "react";
 import { Badge } from "@/components/ui/badge";
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 // Interfaces
 interface Periodo {
@@ -69,6 +71,7 @@ const MiDisponibilidad = () => {
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [plantillaError, setPlantillaError] = useState<string | null>(null);
 
   const docenteId = user?.docente_id;
 
@@ -88,18 +91,19 @@ const MiDisponibilidad = () => {
         }
 
         // Carga de bloques igual que en DisponibilidadDocente
-        const bloquesResponse = await fetchData<any>("scheduling/bloques-horarios/");
+        const bloquesResponse = await fetchData<{ results?: BloqueHorario[] } | BloqueHorario[]>("scheduling/bloques-horarios/");
         let bloquesData: BloqueHorario[] = [];
         if (Array.isArray(bloquesResponse)) {
-          bloquesData = bloquesResponse;
-        } else if (bloquesResponse && Array.isArray(bloquesResponse.results)) {
-          bloquesData = bloquesResponse.results;
+          bloquesData = bloquesResponse as BloqueHorario[];
+        } else if (
+          bloquesResponse &&
+          typeof bloquesResponse === 'object' &&
+          'results' in bloquesResponse &&
+          Array.isArray((bloquesResponse as { results?: BloqueHorario[] }).results)
+        ) {
+          bloquesData = (bloquesResponse as { results: BloqueHorario[] }).results ?? [];
         }
-        if (bloquesData.length > 0) {
-          setBloques(bloquesData.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)));
-        } else {
-          setBloques([]);
-        }
+        setBloques(bloquesData.length > 0 ? bloquesData.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)) : []);
       } catch (err) {
         setError("Error al cargar los datos iniciales.");
         toast.error("Error al cargar los datos iniciales");
@@ -171,12 +175,109 @@ const MiDisponibilidad = () => {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Función para descargar la plantilla Excel tipo matriz
+  const handleDownloadTemplate = () => {
+    if (bloques.length === 0) {
+      toast.error("No hay bloques horarios disponibles para generar la plantilla");
+      return;
+    }
+
+    // Obtener bloques únicos por hora_inicio/hora_fin/turno
+    const bloquesUnicos = Array.from(
+      new Map(
+        bloques.map(b => [`${b.hora_inicio}-${b.hora_fin}-${b.turno}`, b])
+      ).values()
+    ).sort((a, b) => a.orden - b.orden);
+
+    // Encabezados: ["Bloque horario", "Turno", ...días]
+    const headers = [
+      "Bloque horario",
+      "Turno",
+      ...diasSemana.map(d => d.nombre)
+    ];
+    const templateData = [headers];
+
+    // Cada fila: bloque horario, turno, celdas vacías para cada día
+    bloquesUnicos.forEach(bloque => {
+      const row = [
+        `${bloque.hora_inicio} a ${bloque.hora_fin}`,
+        bloque.turno === 'M' ? 'Mañana' : bloque.turno === 'T' ? 'Tarde' : 'Noche',
+        ...diasSemana.map(() => "")
+      ];
+      templateData.push(row);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Plantilla');
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'plantilla_disponibilidad.xlsx');
+    toast.success('Plantilla descargada correctamente');
+  };
+
+  // Validar e importar archivo Excel tipo matriz
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPlantillaError(null);
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setFile(file);
+      try {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        const headers = json[0] as string[];
+        // Validar encabezados
+        if (!headers || headers.length < 8 || headers[0] !== 'Bloque horario' || headers[1] !== 'Turno') {
+          setPlantillaError('La plantilla debe tener los encabezados: Bloque horario, Turno y los días de la semana');
+          setFile(null);
+          return;
+        }
+        // Validar que los días estén bien
+        for (let i = 0; i < diasSemana.length; i++) {
+          if (headers[i+2] !== diasSemana[i].nombre) {
+            setPlantillaError(`La columna ${i+3} debe ser "${diasSemana[i].nombre}"`);
+            setFile(null);
+            return;
+          }
+        }
+        // Validar filas
+        for (let i = 1; i < json.length; i++) {
+          const row = json[i] as unknown[];
+          if (!Array.isArray(row) || row.length < 8) {
+            setPlantillaError(`Fila ${i+1}: Faltan columnas.`);
+            setFile(null);
+            return;
+          }
+          // Validar formato de hora
+          if (typeof row[0] !== 'string' || !row[0].includes('a')) {
+            setPlantillaError(`Fila ${i+1}: Formato de bloque horario inválido.`);
+            setFile(null);
+            return;
+          }
+          // Validar turno
+          if (!["Mañana","Tarde","Noche"].includes(String(row[1]))) {
+            setPlantillaError(`Fila ${i+1}: Turno inválido.`);
+            setFile(null);
+            return;
+          }
+          // Validar celdas: solo vacío o 1
+          for (let j = 2; j < row.length; j++) {
+            if (row[j] !== "" && row[j] !== 1 && row[j] !== "1") {
+              setPlantillaError(`Fila ${i+1}, columna ${headers[j]}: Solo se permite 1 o vacío.`);
+              setFile(null);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        setPlantillaError('No se pudo leer el archivo. Asegúrate de que sea un Excel válido.');
+        setFile(null);
+      }
     }
   };
 
+  // Adaptar handleFileUpload para convertir la matriz a la estructura esperada por el backend
   const handleFileUpload = async () => {
     if (!file || !selectedPeriodo) {
       toast.error("Seleccione un archivo y un periodo.");
@@ -186,14 +287,55 @@ const MiDisponibilidad = () => {
       toast.error("No se ha podido identificar al docente.");
       return;
     }
-    
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("periodo_id", selectedPeriodo.toString());
-    formData.append("docente_id", docenteId.toString());
 
+    setIsUploading(true);
     try {
+      // Leer archivo y convertir a estructura plana
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      const headers = json[0] as string[];
+      const registros: { docente: number; periodo: number; dia_semana: number; bloque_horario: number; esta_disponible: boolean }[] = [];
+      // Mapear bloques únicos para encontrar bloque_def_id
+      const bloquesUnicos = Array.from(
+        new Map(
+          bloques.map(b => [`${b.hora_inicio} a ${b.hora_fin}-${b.turno}`, b])
+        ).values()
+      );
+      for (let i = 1; i < json.length; i++) {
+        const row = json[i] as unknown[];
+        const bloqueLabel = String(row[0]);
+        const turnoLabel = String(row[1]);
+        const bloque = bloquesUnicos.find(b => `${b.hora_inicio} a ${b.hora_fin}` === bloqueLabel && (b.turno === 'M' ? 'Mañana' : b.turno === 'T' ? 'Tarde' : 'Noche') === turnoLabel);
+        if (!bloque) continue;
+        for (let j = 2; j < row.length; j++) {
+          const valor = row[j];
+          const dia = diasSemana[j-2];
+          registros.push({
+            docente: docenteId,
+            periodo: selectedPeriodo,
+            dia_semana: dia.id,
+            bloque_horario: bloque.bloque_def_id,
+            esta_disponible: valor === 1 || valor === "1"
+          });
+        }
+      }
+      // Enviar como archivo Excel plano (como antes)
+      const exportData = registros.map(r => ({
+        Día: r.dia_semana,
+        Bloque: r.bloque_horario,
+        Disponible: r.esta_disponible ? 1 : 0
+      }));
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Import');
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/octet-stream' });
+      const formData = new FormData();
+      formData.append("file", blob, "import_transformado.xlsx");
+      formData.append("periodo_id", selectedPeriodo.toString());
+      formData.append("docente_id", docenteId.toString());
       await client.post("/scheduling/acciones-horario/importar-disponibilidad-excel/", formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -259,6 +401,24 @@ const MiDisponibilidad = () => {
         title="Mi Disponibilidad" 
         description="Configure los horarios en los que está disponible para enseñar." 
       />
+
+      {/* Apartado para descargar plantilla */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Upload className="h-5 w-5" />
+            Plantilla para Importar Disponibilidad
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <Button onClick={handleDownloadTemplate} variant="outline">
+              Descargar Plantilla Excel
+            </Button>
+            <span className="text-sm text-muted-foreground">Formato: Día, Bloque, Disponible (1=Sí, 0=No)</span>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Panel de configuración */}
       <Card>
@@ -330,10 +490,11 @@ const MiDisponibilidad = () => {
               <p className="text-sm text-muted-foreground mt-1">
                 Formato: Excel con columnas Día, Bloque, Disponible (1/0)
               </p>
+              {plantillaError && <p className="text-sm text-red-600 mt-1">{plantillaError}</p>}
             </div>
             <Button 
               onClick={handleFileUpload} 
-              disabled={!file || isUploading || !selectedPeriodo}
+              disabled={!file || isUploading || !selectedPeriodo || !!plantillaError}
             >
               {isUploading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />

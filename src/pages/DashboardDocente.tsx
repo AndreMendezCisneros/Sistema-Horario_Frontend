@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Calendar, 
   ClipboardList, 
@@ -8,9 +8,51 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useAuth } from '@/contexts/AuthContext';
+import client from '@/utils/axiosClient';
+import { Docente } from '@/types';
 
 const DashboardDocente = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [cantidadEspecialidades, setCantidadEspecialidades] = useState<number>(0);
+  const [cantidadHorarios, setCantidadHorarios] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchDocente = async () => {
+      if (user && (user as any).docente_id) {
+        try {
+          const response = await client.get(`/users/docentes/${(user as any).docente_id}/`);
+          const docente: Docente = response.data;
+          setCantidadEspecialidades(docente.especialidades_detalle?.length || 0);
+        } catch (error) {
+          setCantidadEspecialidades(0);
+        }
+      }
+    };
+    fetchDocente();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchHorarios = async () => {
+      if (user && (user as any).docente_id) {
+        try {
+          const response = await client.get(`/scheduling/horarios-asignados/?docente=${(user as any).docente_id}`);
+          // Puede ser paginado o no, revisamos ambos casos
+          let count = 0;
+          if (Array.isArray(response.data)) {
+            count = response.data.length;
+          } else if (response.data.results) {
+            count = response.data.results.length;
+          }
+          setCantidadHorarios(count);
+        } catch (error) {
+          setCantidadHorarios(0);
+        }
+      }
+    };
+    fetchHorarios();
+  }, [user]);
 
   // Datos de ejemplo: horas asignadas por día
   const data = [
@@ -36,16 +78,16 @@ const DashboardDocente = () => {
           className="rounded-lg bg-blue-400 text-white p-4 shadow flex flex-col justify-between cursor-pointer hover:shadow-lg transition-all"
           onClick={() => navigate('/docente/disponibilidad')}
         >
-          <div className="text-2xl font-bold">9,823</div>
-          <div className="text-sm">Mi Disponibilidad</div>
+          <div className="text-2xl font-bold">{cantidadEspecialidades}</div>
+          <div className="text-sm">Mis Especialidades</div>
           <svg className="w-full h-8 mt-2" viewBox="0 0 100 32"><polyline fill="none" stroke="#fff" strokeWidth="2" points="0,30 20,20 40,25 60,10 80,15 100,5" /></svg>
         </div>
         <div
           className="rounded-lg bg-indigo-400 text-white p-4 shadow flex flex-col justify-between cursor-pointer hover:shadow-lg transition-all"
           onClick={() => navigate('/docente/horario')}
         >
-          <div className="text-2xl font-bold">5,120</div>
-          <div className="text-sm">Mi Horario</div>
+          <div className="text-2xl font-bold">{cantidadHorarios}</div>
+          <div className="text-sm">Mis Horarios Asignados</div>
           <svg className="w-full h-8 mt-2" viewBox="0 0 100 32"><polyline fill="none" stroke="#fff" strokeWidth="2" points="0,25 20,15 40,20 60,8 80,12 100,3" /></svg>
         </div>
         <div

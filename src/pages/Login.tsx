@@ -28,11 +28,7 @@ const Login = () => {
       const success = await login(username, password);
       if (success) {
         toast.success('Inicio de sesión exitoso');
-        if (role === 'Administrador') {
-          navigate('/dashboard-admin');
-        } else {
-          navigate('/dashboard-docente');
-        }
+        navigate('/');
       }
     } finally {
       setIsSubmitting(false);

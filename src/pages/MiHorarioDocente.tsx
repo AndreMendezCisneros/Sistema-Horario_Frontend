@@ -15,6 +15,8 @@ import {
 import PageHeader from "@/components/PageHeader";
 import { useAuth } from '@/contexts/AuthContext';
 import HorarioGrid from "@/components/HorarioGrid";
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 interface Periodo {
   periodo_id: number;
@@ -86,6 +88,7 @@ const MiHorarioDocente = () => {
   const [selectedCarrera, setSelectedCarrera] = useState<number | null>(null);
   const [selectedGrupo, setSelectedGrupo] = useState<number | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -168,12 +171,81 @@ const MiHorarioDocente = () => {
     ).values()
   );
 
+  // Función para imprimir solo el horario
+  const handlePrint = () => {
+    if (printRef.current) {
+      const printContents = printRef.current.innerHTML;
+      const originalContents = document.body.innerHTML;
+      document.body.innerHTML = `
+        <div style="padding: 20px;">
+          <h1 style="text-align: center; margin-bottom: 20px;">Mi Horario</h1>
+          ${printContents}
+        </div>
+      `;
+      window.print();
+      document.body.innerHTML = originalContents;
+      window.location.reload();
+    }
+  };
+
+  // Función para descargar el horario como Excel
+  const handleDownload = () => {
+    setIsDownloading(true);
+    try {
+      // Encabezados
+      const headers = ['Hora', ...diasSemana.map(d => d.nombre)];
+      const exportData: any[] = [];
+      exportData.push(headers);
+      // Por cada bloque horario, construir una fila
+      bloques.forEach(bloque => {
+        const row: any[] = [];
+        row.push(`${bloque.hora_inicio.slice(0,5)} - ${bloque.hora_fin.slice(0,5)}`);
+        diasSemana.forEach(dia => {
+          const horario = horariosFiltrados.find(h => h.dia_semana === dia.id && h.bloque_horario === bloque.bloque_def_id);
+          if (horario) {
+            row.push(
+              `Materia: ${horario.materia_detalle?.nombre_materia || ''}\nGrupo: ${horario.grupo_detalle?.codigo_grupo || ''}\nAula: ${horario.espacio_detalle?.nombre_espacio || ''}`
+            );
+          } else {
+            row.push('');
+          }
+        });
+        exportData.push(row);
+      });
+      // Crear hoja y libro de Excel
+      const ws = XLSX.utils.aoa_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'MiHorario');
+      // Generar archivo y descargar
+      const currentDate = new Date().toISOString().slice(0, 10);
+      const fileName = `mi_horario_${currentDate}.xlsx`;
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      saveAs(new Blob([wbout], { type: 'application/octet-stream' }), fileName);
+      toast.success('Horario descargado correctamente');
+    } catch (error) {
+      toast.error('Error al descargar el horario');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <PageHeader 
         title="Mi Horario" 
         description="Visualiza tus horarios asignados para el periodo académico actual." 
       />
+      {/* Botones de acción */}
+      <div className="flex justify-end mb-2 gap-2">
+        <Button onClick={handleDownload} variant="outline" className="flex items-center" disabled={isDownloading}>
+          <Download className="h-4 w-4 mr-2" />
+          {isDownloading ? 'Descargando...' : 'Descargar'}
+        </Button>
+        <Button onClick={handlePrint} variant="outline" className="flex items-center">
+          <Printer className="h-4 w-4 mr-2" />
+          Imprimir
+        </Button>
+      </div>
       {/* Selector de periodo, carrera y grupo */}
       <Card>
         <CardContent>
@@ -212,28 +284,30 @@ const MiHorarioDocente = () => {
         </CardContent>
       </Card>
       {/* Tabla de horario */}
-      {horariosFiltrados.length > 0 ? (
-        <HorarioGrid 
-          bloques={bloques}
-          horarios={horariosFiltrados}
-          materias={materias}
-          docentes={docentesUnicos}
-          aulas={aulasUnicas}
-          selectedGrupo={gruposFiltrados.find(g => g.grupo_id === Number(selectedGrupo)) || null}
-        />
-      ) : (
-        <Card>
-          <CardContent className="p-12">
-            <div className="text-center space-y-4">
-              <Calendar className="h-16 w-16 mx-auto text-gray-300" />
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">No tienes horarios asignados</h3>
-                <p className="text-gray-500">Cuando se te asignen horarios, aparecerán aquí.</p>
+      <div ref={printRef}>
+        {horariosFiltrados.length > 0 ? (
+          <HorarioGrid 
+            bloques={bloques}
+            horarios={horariosFiltrados}
+            materias={materias}
+            docentes={docentesUnicos}
+            aulas={aulasUnicas}
+            selectedGrupo={gruposFiltrados.find(g => g.grupo_id === Number(selectedGrupo)) || null}
+          />
+        ) : (
+          <Card>
+            <CardContent className="p-12">
+              <div className="text-center space-y-4">
+                <Calendar className="h-16 w-16 mx-auto text-gray-300" />
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">No tienes horarios asignados</h3>
+                  <p className="text-gray-500">Cuando se te asignen horarios, aparecerán aquí.</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };

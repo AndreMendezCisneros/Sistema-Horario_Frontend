@@ -66,7 +66,7 @@ const SelectRole = () => {
         >
           <p className="text-sm font-light tracking-widest text-gray-300 mb-2">PLATAFORMA DE GESTIÓN ACADÉMICA</p>
           <h1 className="text-5xl md:text-6xl font-bold mb-4">
-            Bienvenido al Sistema del Equipo Alfa Buena Maravilla Onda Dinamita Escuadrón Lobo
+            Bienvenido al Sistema del Equipo ABMODEL
           </h1>
           <p className="text-base md:text-lg text-gray-300 max-w-2xl mx-auto mb-8">
             Este sistema facilita la planificación y organización de horarios académicos para <span className="font-bold">docentes y coordinadores.</span> Ingrese según tu rol para acceder a las funciones correspondientes.
