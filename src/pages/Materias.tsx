@@ -187,42 +187,46 @@ const Materias = () => {
     loadAllMaterias();
   }, [carreraId, navigate]);
 
+  // Muevo fetchAllCarreraMaterias fuera del useEffect para que esté disponible globalmente
+  const fetchAllCarreraMaterias = async () => {
+    if (!carreraId) return;
+    let allResults: CarreraMateria[] = [];
+    let page = 1;
+    let hasNext = true;
+    let totalPages = 0;
+    try {
+      while (hasNext) {
+        const response = await fetchData<{ results: CarreraMateria[], next: string | null }>(`academic-setup/carrera-materias/?carrera=${carreraId}&page=${page}`);
+        allResults = allResults.concat(response.results || []);
+        hasNext = !!response.next;
+        page++;
+        totalPages++;
+        console.log(`[CarreraMaterias] Página ${page - 1} cargada, resultados acumulados:`, allResults.length);
+      }
+      setCarreraMaterias(allResults);
+      // Crear un mapa materia_id -> lista de ciclos
+      const map: Record<number, string[]> = {};
+      (allResults || []).forEach(cm => {
+        if (cm.materia) {
+          if (!map[cm.materia]) map[cm.materia] = [];
+          if (cm.ciclo_nombre && !map[cm.materia].includes(cm.ciclo_nombre)) {
+            map[cm.materia].push(cm.ciclo_nombre);
+          }
+        }
+      });
+      console.log(`[CarreraMaterias] Total páginas: ${totalPages}, Total relaciones: ${allResults.length}`);
+      console.log('[CarreraMaterias] Mapeo final materia_id -> ciclos:', map);
+      setCicloPorMateria(map);
+    } catch (error) {
+      setCarreraMaterias([]);
+      setCicloPorMateria({});
+      console.error('[CarreraMaterias] Error al cargar relaciones:', error);
+    }
+  };
+
+  // En el useEffect original, solo llamo a fetchAllCarreraMaterias()
   useEffect(() => {
     if (!carreraId) return;
-    const fetchAllCarreraMaterias = async () => {
-      let allResults: CarreraMateria[] = [];
-      let page = 1;
-      let hasNext = true;
-      let totalPages = 0;
-      try {
-        while (hasNext) {
-          const response = await fetchData<{ results: CarreraMateria[], next: string | null }>(`academic-setup/carrera-materias/?carrera=${carreraId}&page=${page}`);
-          allResults = allResults.concat(response.results || []);
-          hasNext = !!response.next;
-          page++;
-          totalPages++;
-          console.log(`[CarreraMaterias] Página ${page - 1} cargada, resultados acumulados:`, allResults.length);
-        }
-        setCarreraMaterias(allResults);
-        // Crear un mapa materia_id -> lista de ciclos
-        const map: Record<number, string[]> = {};
-        (allResults || []).forEach(cm => {
-          if (cm.materia) {
-            if (!map[cm.materia]) map[cm.materia] = [];
-            if (cm.ciclo_nombre && !map[cm.materia].includes(cm.ciclo_nombre)) {
-              map[cm.materia].push(cm.ciclo_nombre);
-            }
-          }
-        });
-        console.log(`[CarreraMaterias] Total páginas: ${totalPages}, Total relaciones: ${allResults.length}`);
-        console.log('[CarreraMaterias] Mapeo final materia_id -> ciclos:', map);
-        setCicloPorMateria(map);
-      } catch (error) {
-        setCarreraMaterias([]);
-        setCicloPorMateria({});
-        console.error('[CarreraMaterias] Error al cargar relaciones:', error);
-      }
-    };
     fetchAllCarreraMaterias();
   }, [carreraId]);
 
@@ -380,6 +384,7 @@ const Materias = () => {
         }
         toast.success("Materia actualizada exitosamente.");
         loadAllMaterias();
+        await fetchAllCarreraMaterias();
       } else {
         await createItem<Materia>(
           "academic-setup/materias/", 
@@ -387,6 +392,7 @@ const Materias = () => {
         );
         toast.success("Materia creada y asignada a la carrera exitosamente");
         loadAllMaterias();
+        await fetchAllCarreraMaterias();
       }
       handleCloseModal();
     } catch (error) {
@@ -409,6 +415,7 @@ const Materias = () => {
       await deleteItem("academic-setup/materias/", currentMateria.materia_id);
       toast.success("Materia eliminada exitosamente");
       loadAllMaterias();
+      await fetchAllCarreraMaterias();
     } catch (error) {
       console.error("Error deleting materia:", error);
       toast.error("Error al eliminar la materia");
