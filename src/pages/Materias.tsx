@@ -211,7 +211,7 @@ const Materias = () => {
     let totalPages = 0;
     try {
       while (hasNext) {
-        const response = await fetchData<{ results: CarreraMateria[], next: string | null }>(`academic-setup/carrera-materias/?carrera=${carreraId}&page=${page}`);
+        const response = await fetchData<{ results: CarreraMateria[], next: string | null }>(`academic-setup/carrera-materias/?carrera_id=${carreraId}&page=${page}`);
         allResults = allResults.concat(response.results || []);
         hasNext = !!response.next;
         page++;
