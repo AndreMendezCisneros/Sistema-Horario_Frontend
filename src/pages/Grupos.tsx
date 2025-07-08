@@ -106,6 +106,14 @@ const turnos = [
   { value: "N", label: "Noche" },
 ];
 
+// 1. Definición de la interfaz Ciclo
+interface Ciclo {
+  ciclo_id: number;
+  nombre_ciclo: string;
+  orden: number;
+  carrera: number;
+}
+
 const Grupos = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -123,6 +131,8 @@ const Grupos = () => {
   const [currentGrupo, setCurrentGrupo] = useState<Grupo | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [pagination, setPagination] = useState({ count: 0, page: 1, pageSize: 10 });
+  const [ciclos, setCiclos] = useState<Ciclo[]>([]); // ciclos de la carrera seleccionada en el modal
+  const [cicloId, setCicloId] = useState<number | null>(null); // ciclo seleccionado en el modal
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -274,11 +284,40 @@ const Grupos = () => {
     }
   }, [docentes, isModalOpen]);
 
+  // Cargar ciclos cuando el modal está abierto y cambia la carrera
+  useEffect(() => {
+    if (isModalOpen && form.watch("carrera") > 0) {
+      fetchData<Ciclo[]>(`academic-setup/ciclos/?carrera_id=${form.watch("carrera")}`)
+        .then(response => {
+          setCiclos(response || []);
+          console.log('Ciclos cargados para carrera', form.watch("carrera"), ':', response);
+        })
+        .catch(() => setCiclos([]));
+    } else if (!isModalOpen) {
+      setCiclos([]);
+      setCicloId(null);
+    }
+  }, [isModalOpen, form.watch("carrera")]);
+
+  // Filtrar materias por ciclo cuando se selecciona uno en el modal
+  useEffect(() => {
+    if (isModalOpen && form.watch("carrera") > 0 && cicloId) {
+      fetchData<{ results: Materia[] }>(`academic-setup/carreras/${form.watch("carrera")}/materias/?ciclo_id=${cicloId}`)
+        .then(response => {
+          setMateriasFiltradas(response.results || []);
+          form.setValue("materias", (response.results || []).map(m => m.materia_id));
+        })
+        .catch(() => {
+          setMateriasFiltradas([]);
+          form.setValue("materias", []);
+        });
+    }
+  }, [isModalOpen, cicloId, form.watch("carrera")]);
+
+  // Al abrir el modal para editar, seleccionar ciclo automáticamente si aplica
   const handleOpenModal = (grupo?: Grupo) => {
     if (grupo) {
       setCurrentGrupo(grupo);
-      // Cargar las materias de la carrera del grupo que se está editando
-      loadMateriasPorCarrera(grupo.carrera);
       form.reset({
         codigo_grupo: grupo.codigo_grupo,
         materias: grupo.materias,
@@ -288,10 +327,22 @@ const Grupos = () => {
         turno_preferente: grupo.turno_preferente,
         docente_asignado_directamente: grupo.docente_asignado_directamente,
       });
+      // Buscar ciclo de la primera materia (si existe)
+      if (grupo.materias.length > 0) {
+        fetchData<{ ciclo_id: number }>(`academic-setup/materias/${grupo.materias[0]}/ciclo/?carrera_id=${grupo.carrera}`)
+          .then(cicloResp => {
+            if (cicloResp && cicloResp.ciclo_id) {
+              setCicloId(cicloResp.ciclo_id);
+            } else {
+              setCicloId(null);
+            }
+          });
+      } else {
+        setCicloId(null);
+      }
     } else {
       setCurrentGrupo(null);
-      // Limpiar las materias filtradas cuando se crea un nuevo grupo
-      setMateriasFiltradas([]);
+      setCicloId(null);
       form.reset({
         codigo_grupo: "",
         materias: [],
@@ -562,6 +613,29 @@ const Grupos = () => {
                   </FormItem>
                 )}
               />
+
+              {isModalOpen && ciclos.length > 0 && (
+                <div className="mb-2">
+                  <FormLabel>Ciclo</FormLabel>
+                  <Select
+                    onValueChange={value => setCicloId(Number(value))}
+                    value={cicloId?.toString() || ""}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccione un ciclo" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {ciclos.sort((a, b) => a.orden - b.orden).map(ciclo => (
+                        <SelectItem key={ciclo.ciclo_id} value={ciclo.ciclo_id.toString()}>
+                          {ciclo.nombre_ciclo}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <FormField
                 control={form.control}
