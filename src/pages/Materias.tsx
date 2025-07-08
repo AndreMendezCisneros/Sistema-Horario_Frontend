@@ -121,7 +121,6 @@ const Materias = () => {
       setMaterias(materiasResponse.results || []);
       setPagination(prev => ({ ...prev, count: materiasResponse.count || 0, page }));
     } catch (error) {
-      console.error("Error loading materias:", error);
       toast.error("Error al cargar las materias");
     } finally {
       setIsLoading(false);
@@ -447,6 +446,28 @@ const Materias = () => {
       )
     },
   ];
+
+  const carreraActualId = carrera?.carrera_id || parseInt(carreraId!);
+  const materiasPorCiclo: Record<string, { nombre: string, materias: Materia[] }> = {};
+  const materiasSinCiclo: Materia[] = [];
+
+  materias.forEach(materia => {
+    // Buscar todas las relaciones para la materia y la carrera actual
+    const relaciones = carreraMaterias.filter(
+      cm => cm.materia === materia.materia_id && cm.carrera === carreraActualId
+    );
+    // Prioriza la relación con ciclo válido
+    const relacionConCiclo = relaciones.find(cm => cm.ciclo_nombre && cm.ciclo !== null);
+    if (relacionConCiclo) {
+      const key = relacionConCiclo.ciclo_nombre!;
+      if (!materiasPorCiclo[key]) {
+        materiasPorCiclo[key] = { nombre: relacionConCiclo.ciclo_nombre!, materias: [] };
+      }
+      materiasPorCiclo[key].materias.push(materia);
+    } else {
+      materiasSinCiclo.push(materia);
+    }
+  });
 
   return (
     <div className="container mx-auto py-6">
