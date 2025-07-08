@@ -135,6 +135,26 @@ const Materias = () => {
     }
   };
 
+  // Nueva función para cargar todas las especialidades paginadas
+  const loadAllEspecialidades = async () => {
+    let allResults: Especialidad[] = [];
+    let page = 1;
+    let hasNext = true;
+    try {
+      while (hasNext) {
+        const response = await fetchData<{ results: Especialidad[], next: string | null }>(`academic-setup/especialidades/?page=${page}`);
+        allResults = allResults.concat(response.results || []);
+        hasNext = !!response.next;
+        page++;
+      }
+      setEspecialidades(allResults);
+    } catch (error) {
+      setEspecialidades([]);
+      console.error('Error al cargar especialidades:', error);
+      toast.error('Error al cargar especialidades');
+    }
+  };
+
   // Load carrera, materias, and tipos de espacios on component mount
   useEffect(() => {
     if (!carreraId || isNaN(parseInt(carreraId))) {
@@ -143,11 +163,10 @@ const Materias = () => {
     
     const loadAuxData = async () => {
       try {
-        const [tiposEspacioResponse, carreraResponse, allCarrerasResponse, especialidadesResponse] = await Promise.all([
+        const [tiposEspacioResponse, carreraResponse, allCarrerasResponse] = await Promise.all([
           fetchData<{ results: TipoEspacio[] }>("academic-setup/tipos-espacio/"),
           carreraId ? fetchData<Carrera>(`academic-setup/carreras/${carreraId}/`) : Promise.resolve(null),
-          fetchData<{ results: Carrera[] }>("academic-setup/carreras/"),
-          fetchData<Especialidad[] | { results: Especialidad[] }>("academic-setup/especialidades/")
+          fetchData<{ results: Carrera[] }>("academic-setup/carreras/")
         ]);
 
         if (carreraResponse) {
@@ -171,12 +190,8 @@ const Materias = () => {
           setAllCarreras([]);
         }
 
-        if (especialidadesResponse) {
-          const especialidadesData = 'results' in especialidadesResponse ? especialidadesResponse.results : especialidadesResponse;
-          setEspecialidades(especialidadesData);
-        } else {
-          setEspecialidades([]);
-        }
+        // Cargar todas las especialidades paginadas
+        await loadAllEspecialidades();
       } catch (error) {
         console.error("Error loading aux data:", error);
         toast.error("Error al cargar datos auxiliares");
