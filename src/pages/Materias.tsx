@@ -351,6 +351,33 @@ const Materias = () => {
           currentMateria.materia_id,
           updateData
         );
+        // --- NUEVO: Si el ciclo fue cambiado, actualiza CarreraMaterias ---
+        if (carreras && carreras.length === 1 && ciclo_id) {
+          // Buscar la relación CarreraMaterias para esta materia y carrera
+          const carreraActualId = carreras[0];
+          const relacion = carreraMaterias.find(cm => cm.materia === currentMateria.materia_id && cm.carrera === carreraActualId);
+          console.log("[Editar ciclo] ciclo_id seleccionado:", ciclo_id);
+          console.log("[Editar ciclo] Relación encontrada:", relacion);
+          if (relacion && relacion.ciclo !== ciclo_id) {
+            try {
+              const resp = await updateItem(
+                "academic-setup/carrera-materias/",
+                relacion.id,
+                { 
+                  carrera: relacion.carrera,
+                  materia: relacion.materia,
+                  ciclo: ciclo_id
+                }
+              );
+              console.log("[Editar ciclo] PATCH CarreraMaterias respuesta:", resp);
+            } catch (err) {
+              console.error("[Editar ciclo] Error PATCH CarreraMaterias:", err);
+              toast.error("Error al actualizar el ciclo de la materia en la carrera");
+            }
+          } else if (!relacion) {
+            toast.warning("No se encontró la relación Carrera-Materia para editar el ciclo.");
+          }
+        }
         toast.success("Materia actualizada exitosamente.");
         loadAllMaterias();
       } else {
@@ -820,7 +847,12 @@ const Materias = () => {
                     </FormItem>
                   )}
                 />
-                {selectedCarrerasInForm && selectedCarrerasInForm.length === 1 && ciclos.length > 0 && (
+                <div>
+                  {currentMateria && cicloPorMateria[currentMateria.materia_id] && cicloPorMateria[currentMateria.materia_id].length > 0 && (
+                    <div className="mb-2 text-blue-700 font-semibold text-sm">
+                      Ciclo actual: <span className="bg-blue-100 px-2 py-0.5 rounded">{cicloPorMateria[currentMateria.materia_id].join(', ')}</span>
+                    </div>
+                  )}
                   <FormField
                     control={form.control}
                     name="ciclo_id"
@@ -848,7 +880,7 @@ const Materias = () => {
                       </FormItem>
                     )}
                   />
-                )}
+                </div>
               </div>
               
               {/* Fila 6: Especialidades */}
