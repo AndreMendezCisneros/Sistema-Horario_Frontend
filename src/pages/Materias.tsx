@@ -111,15 +111,23 @@ const Materias = () => {
     }
   }, [carreraId, navigate]);
 
-  const loadMaterias = async (page: number) => {
+  const loadAllMaterias = async () => {
     if (!carreraId || isNaN(parseInt(carreraId))) return;
     setIsLoading(true);
     try {
-      const materiasResponse = await fetchData<ApiResponse<Materia>>(
-        `academic-setup/carreras/${carreraId}/materias/?page=${page}`
-      );
-      setMaterias(materiasResponse.results || []);
-      setPagination(prev => ({ ...prev, count: materiasResponse.count || 0, page }));
+      let allResults: Materia[] = [];
+      let page = 1;
+      let hasNext = true;
+      while (hasNext) {
+        const materiasResponse = await fetchData<ApiResponse<Materia>>(
+          `academic-setup/carreras/${carreraId}/materias/?page=${page}`
+        );
+        allResults = allResults.concat(materiasResponse.results || []);
+        hasNext = !!materiasResponse.next;
+        page++;
+      }
+      setMaterias(allResults);
+      setPagination(prev => ({ ...prev, count: allResults.length, page: 1 }));
     } catch (error) {
       toast.error("Error al cargar las materias");
     } finally {
@@ -176,7 +184,7 @@ const Materias = () => {
     };
     
     loadAuxData();
-    loadMaterias(1);
+    loadAllMaterias();
   }, [carreraId, navigate]);
 
   useEffect(() => {
@@ -344,14 +352,14 @@ const Materias = () => {
           updateData
         );
         toast.success("Materia actualizada exitosamente.");
-        loadMaterias(pagination.page);
+        loadAllMaterias();
       } else {
         await createItem<Materia>(
           "academic-setup/materias/", 
           values
         );
         toast.success("Materia creada y asignada a la carrera exitosamente");
-        loadMaterias(1);
+        loadAllMaterias();
       }
       handleCloseModal();
     } catch (error) {
@@ -373,7 +381,7 @@ const Materias = () => {
     try {
       await deleteItem("academic-setup/materias/", currentMateria.materia_id);
       toast.success("Materia eliminada exitosamente");
-      loadMaterias(pagination.page);
+      loadAllMaterias();
     } catch (error) {
       console.error("Error deleting materia:", error);
       toast.error("Error al eliminar la materia");
@@ -447,8 +455,9 @@ const Materias = () => {
     },
   ];
 
+  // Agrupación de materias por ciclo
   const carreraActualId = carrera?.carrera_id || parseInt(carreraId!);
-  const materiasPorCiclo: Record<string, { nombre: string, materias: Materia[] }> = {};
+  const materiasPorCiclo: Record<string, { nombre: string, orden: number, materias: Materia[] }> = {};
   const materiasSinCiclo: Materia[] = [];
 
   materias.forEach(materia => {
@@ -460,14 +469,95 @@ const Materias = () => {
     const relacionConCiclo = relaciones.find(cm => cm.ciclo_nombre && cm.ciclo !== null);
     if (relacionConCiclo) {
       const key = relacionConCiclo.ciclo_nombre!;
+      // Buscar el ciclo para obtener el orden
+      const cicloObj = ciclos.find(c => c.nombre_ciclo === relacionConCiclo.ciclo_nombre);
+      const orden = cicloObj ? cicloObj.orden : 9999;
       if (!materiasPorCiclo[key]) {
-        materiasPorCiclo[key] = { nombre: relacionConCiclo.ciclo_nombre!, materias: [] };
+        materiasPorCiclo[key] = { nombre: relacionConCiclo.ciclo_nombre!, orden, materias: [] };
       }
       materiasPorCiclo[key].materias.push(materia);
     } else {
       materiasSinCiclo.push(materia);
     }
   });
+
+  const groupedColumns = [
+    { key: "codigo_materia", header: "Código" },
+    { key: "nombre_materia", header: "Nombre" },
+    { 
+      key: "horas", 
+      header: "Horas (T/P/L/Total)", 
+      render: (row: Materia) => (
+        <span>
+          {row.horas_academicas_teoricas}/{row.horas_academicas_practicas}/{row.horas_academicas_laboratorio}/
+          {row.horas_totales}
+        </span>
+      )
+    },
+    { 
+      key: "horas_totales", 
+      header: "Horas Totales", 
+      render: (row: Materia) => `${row.horas_totales}`
+    },
+    {
+      key: "ciclo",
+      header: "Ciclo",
+      render: (row: Materia) => {
+        const ciclos = cicloPorMateria[row.materia_id];
+        return ciclos && ciclos.length > 0 ? (
+          <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs font-medium">
+            {ciclos.join(", ")}
+          </span>
+        ) : (
+          <span className="text-gray-400">Sin ciclo</span>
+        );
+      }
+    },
+    { 
+      key: "requiere_tipo_espacio_especifico", 
+      header: "Espacio Requerido",
+      render: (row: Materia) => row.requiere_tipo_espacio_nombre || <span className="text-gray-400">N/A</span>
+    },
+    {
+      key: "especialidades_detalle",
+      header: "Especialidades Requeridas",
+      render: (row: Materia) => {
+        if (!row.especialidades_detalle || row.especialidades_detalle.length === 0) {
+          return <span className="text-gray-500">Ninguna</span>;
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {row.especialidades_detalle.map(e => (
+              <span key={e.especialidad_id} className="bg-gray-200 text-gray-800 rounded px-2 py-0.5 text-xs">{e.nombre_especialidad}</span>
+            ))}
+          </div>
+        );
+      }
+    },
+    { 
+      key: "estado", 
+      header: "Estado", 
+      render: (row: Materia) => (
+        <span className={row.estado ? "text-green-600" : "text-red-600"}>
+          {row.estado ? "Activo" : "Inactivo"}
+        </span>
+      )
+    },
+    {
+      key: "acciones",
+      header: "Acciones",
+      render: (row: Materia) => (
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => handleOpenModal(row)}>
+            Editar
+          </Button>
+          <Button size="sm" variant="destructive" onClick={() => handleDelete(row)}>
+            Eliminar
+          </Button>
+        </div>
+      )
+    }
+  ];
 
   return (
     <div className="container mx-auto py-6">
@@ -494,37 +584,63 @@ const Materias = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-academic-primary"></div>
         </div>
       ) : (
-        <DataTable 
-          data={materias} 
-          columns={columns}
-          onEdit={handleOpenModal}
-          onDelete={handleDelete}
-        />
+        <>
+          {/* Vista agrupada por ciclo, ordenada */}
+          {Object.values(materiasPorCiclo)
+            .sort((a, b) => a.orden - b.orden)
+            .map(({ nombre, materias }) => (
+              <div key={nombre} className="mb-8 bg-white rounded shadow p-4">
+                <h2 className="text-lg font-bold mb-2">{nombre.toUpperCase()}</h2>
+                <table className="min-w-full border text-sm">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      {groupedColumns.map(col => (
+                        <th key={col.key} className="px-2 py-1 border">{col.header}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {materias.map(materia => (
+                      <tr key={materia.materia_id}>
+                        {groupedColumns.map(col => (
+                          <td key={col.key} className="px-2 py-1 border">
+                            {col.render ? col.render(materia) : (materia as Materia)[col.key]}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          {/* Sin ciclo al final */}
+          {materiasSinCiclo.length > 0 && (
+            <div className="mb-8 bg-white rounded shadow p-4">
+              <h2 className="text-lg font-bold mb-2">Sin ciclo</h2>
+              <table className="min-w-full border text-sm">
+                <thead>
+                  <tr className="bg-gray-100">
+                    {groupedColumns.map(col => (
+                      <th key={col.key} className="px-2 py-1 border">{col.header}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {materiasSinCiclo.map(materia => (
+                    <tr key={materia.materia_id}>
+                      {groupedColumns.map(col => (
+                        <td key={col.key} className="px-2 py-1 border">
+                          {col.render ? col.render(materia) : (materia as Materia)[col.key]}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
-
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <span className="text-sm text-muted-foreground">
-          Página {pagination.page} de {Math.ceil(pagination.count / pagination.pageSize)}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => loadMaterias(pagination.page - 1)}
-          disabled={pagination.page <= 1}
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Anterior
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => loadMaterias(pagination.page + 1)}
-          disabled={pagination.page >= Math.ceil(pagination.count / pagination.pageSize)}
-        >
-          Siguiente
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
 
       {/* Form modal for creating/editing */}
       <FormModal
