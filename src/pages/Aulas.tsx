@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 
 interface UnidadAcademica {
   unidad_id: number;
@@ -56,6 +57,7 @@ const Aulas = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [pagination, setPagination] = useState({ count: 0, page: 1, pageSize: 10 });
   const [searchNombre, setSearchNombre] = useState("");
+  const [verTodos, setVerTodos] = useState(false);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -83,10 +85,38 @@ const Aulas = () => {
     }
   };
 
+  const loadAllAulas = async () => {
+    setIsLoading(true);
+    try {
+      let page = 1;
+      let hasMore = true;
+      let allAulas: Aula[] = [];
+      while (hasMore) {
+        const response = await fetchData<{ results: Aula[], count: number }>(`academic-setup/espacios-fisicos/?page=${page}`);
+        allAulas = allAulas.concat(response.results || []);
+        hasMore = response.results && response.results.length > 0 && allAulas.length < response.count;
+        page++;
+      }
+      setAulas(allAulas);
+      setPagination(prev => ({ ...prev, count: allAulas.length, page: 1 }));
+    } catch (error) {
+      toast.error("Error al cargar todos los espacios físicos");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Load data on component mount
   useEffect(() => {
-    loadAulas(pagination.page);
+    if (verTodos) {
+      loadAllAulas();
+    } else {
+      loadAulas(pagination.page);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verTodos, pagination.page]);
 
+  useEffect(() => {
     const loadAuxData = async () => {
       try {
         const [unidadesData, tiposEspaciosData] = await Promise.all([
@@ -226,14 +256,19 @@ const Aulas = () => {
         onAdd={() => handleOpenModal()}
       />
       {/* Barra de búsqueda por nombre */}
-      <div className="flex justify-end mb-2">
-        <Input
-          type="text"
-          placeholder="Buscar por nombre..."
-          value={searchNombre}
-          onChange={e => setSearchNombre(e.target.value)}
-          className="w-full max-w-xs"
-        />
+      <div className="flex justify-between mb-2">
+        <div></div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm">Ver todos</span>
+          <Switch checked={verTodos} onCheckedChange={setVerTodos} />
+          <Input
+            type="text"
+            placeholder="Buscar por nombre..."
+            value={searchNombre}
+            onChange={e => setSearchNombre(e.target.value)}
+            className="w-full max-w-xs"
+          />
+        </div>
       </div>
       {isLoading ? (
         <div className="flex justify-center my-12">
@@ -248,29 +283,31 @@ const Aulas = () => {
         />
       )}
 
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <span className="text-sm text-muted-foreground">
-          Página {pagination.page} de {Math.ceil(pagination.count / pagination.pageSize)}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => loadAulas(pagination.page - 1)}
-          disabled={pagination.page <= 1}
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Anterior
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => loadAulas(pagination.page + 1)}
-          disabled={pagination.page >= Math.ceil(pagination.count / pagination.pageSize)}
-        >
-          Siguiente
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      {!verTodos && (
+        <div className="flex items-center justify-end space-x-2 py-4">
+          <span className="text-sm text-muted-foreground">
+            Página {pagination.page} de {Math.ceil(pagination.count / pagination.pageSize)}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadAulas(pagination.page - 1)}
+            disabled={pagination.page <= 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Anterior
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadAulas(pagination.page + 1)}
+            disabled={pagination.page >= Math.ceil(pagination.count / pagination.pageSize)}
+          >
+            Siguiente
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       {/* Form modal for creating/editing */}
       <FormModal
