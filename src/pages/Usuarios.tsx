@@ -40,8 +40,6 @@ interface Group {
 const createUserSchema = z.object({
   username: z.string().min(1, "El usuario es obligatorio"),
   email: z.string().email("Correo inválido"),
-  first_name: z.string().min(1, "El nombre es obligatorio"),
-  last_name: z.string().min(1, "El apellido es obligatorio"),
   password: z.string().min(6, "Mínimo 6 caracteres"),
   password2: z.string().min(6, "Confirma la contraseña"),
   groups: z.array(z.number()).min(1, "Selecciona al menos un rol"),
@@ -57,6 +55,24 @@ const editUserSchema = z.object({
   groups: z.array(z.number()).min(1, "Selecciona al menos un rol"),
 });
 
+const loadAllUsuarios = async (): Promise<User[]> => {
+  const allUsuarios: User[] = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const response = await fetchData<ApiResponse<User>>(`users/all/?page=${page}`);
+    if (response && 'results' in response) {
+      allUsuarios.push(...response.results);
+      hasMore = !!response.next;
+      page++;
+    } else {
+      hasMore = false;
+    }
+  }
+  return allUsuarios;
+};
+
 const Usuarios = () => {
   const [usuarios, setUsuarios] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,14 +83,13 @@ const Usuarios = () => {
   const [pagination, setPagination] = useState({ count: 0, page: 1, pageSize: 10 });
   const [isEditMode, setIsEditMode] = useState(false);
   const [roles, setRoles] = useState<Group[]>([]);
+  const [searchEmail, setSearchEmail] = useState("");
 
   const createForm = useForm<z.infer<typeof createUserSchema>>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
       username: "",
       email: "",
-      first_name: "",
-      last_name: "",
       password: "",
       password2: "",
       groups: [],
@@ -91,14 +106,11 @@ const Usuarios = () => {
     },
   });
 
-  const loadUsuarios = async (page: number) => {
+  const loadUsuarios = async () => {
     setIsLoading(true);
     try {
-      const data = await fetchData<ApiResponse<User>>(`users/all/?page=${page}`);
-      if (data && Array.isArray(data.results)) {
-        setUsuarios(data.results);
-        setPagination({ count: data.count || data.results.length, page, pageSize: 10 });
-      }
+      const data = await loadAllUsuarios();
+      setUsuarios(data);
     } catch (error) {
       toast.error("Error al cargar los usuarios.");
     } finally {
@@ -118,7 +130,7 @@ const Usuarios = () => {
   };
 
   useEffect(() => {
-    loadUsuarios(1);
+    loadUsuarios();
     loadRoles();
   }, []);
 
@@ -158,7 +170,7 @@ const Usuarios = () => {
       try {
         await updateItem<User>("users/all/", currentUser.id, values);
         toast.success("Usuario actualizado exitosamente.");
-        loadUsuarios(pagination.page);
+        loadUsuarios();
         handleCloseModal();
       } catch (error) {
         toast.error("Error al actualizar el usuario.");
@@ -173,7 +185,7 @@ const Usuarios = () => {
       try {
         await createItem<User>("users/all/register/", values);
         toast.success("Usuario creado exitosamente.");
-        loadUsuarios(1);
+        loadUsuarios();
         handleCloseModal();
       } catch (error) {
         toast.error("Error al crear el usuario.");
@@ -185,7 +197,7 @@ const Usuarios = () => {
 
   const columns = [
     { key: "username", header: "Usuario" },
-    { key: "email", header: "Correo" },
+    { key: "email", header: "Correo", render: (row: User) => row.email || "Sin correo" },
     { key: "is_active", header: "Activo", render: (row: User) => row.is_active ? "Sí" : "No" },
     { key: "groups", header: "Rol", render: (row: User) => row.groups.map(g => g.name).join(", ") },
     { key: "password", header: "Contraseña", render: () => "••••••" },
@@ -200,6 +212,10 @@ const Usuarios = () => {
     },
   ];
 
+  const filteredUsuarios = usuarios.filter(user =>
+    user.email.toLowerCase().includes(searchEmail.toLowerCase())
+  );
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <PageHeader
@@ -208,34 +224,21 @@ const Usuarios = () => {
         onAdd={() => handleOpenModal()}
         addButtonText="Nuevo Usuario"
       />
-
+      {/* Barra de búsqueda por email */}
+      <div className="flex justify-end mb-2">
+        <Input
+          type="text"
+          placeholder="Buscar por correo..."
+          value={searchEmail}
+          onChange={e => setSearchEmail(e.target.value)}
+          className="w-full max-w-xs"
+        />
+      </div>
       <DataTable
-        data={usuarios}
+        data={filteredUsuarios}
         columns={columns}
       />
-
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <span className="text-sm text-muted-foreground">
-          Página {pagination.page} de {Math.ceil(pagination.count / pagination.pageSize)}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => loadUsuarios(pagination.page - 1)}
-          disabled={pagination.page <= 1}
-        >
-          Anterior
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => loadUsuarios(pagination.page + 1)}
-          disabled={pagination.page >= Math.ceil(pagination.count / pagination.pageSize)}
-        >
-          Siguiente
-        </Button>
-      </div>
-
+      {/* Eliminar la paginación local */}
       <FormModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -337,32 +340,6 @@ const Usuarios = () => {
                       <FormLabel>Correo</FormLabel>
                       <FormControl>
                         <Input type="email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={createForm.control}
-                  name="first_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nombre</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={createForm.control}
-                  name="last_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Apellido</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

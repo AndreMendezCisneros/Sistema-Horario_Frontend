@@ -55,6 +55,7 @@ const Aulas = () => {
   const [currentAula, setCurrentAula] = useState<Aula | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [pagination, setPagination] = useState({ count: 0, page: 1, pageSize: 10 });
+  const [searchNombre, setSearchNombre] = useState("");
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -214,6 +215,9 @@ const Aulas = () => {
     },
   ];
 
+  // Filtrado por nombre
+  const filteredAulas = aulas.filter(a => (a.nombre_espacio || "").toLowerCase().includes(searchNombre.toLowerCase()));
+
   return (
     <div className="container mx-auto py-6 bg-gray-100 min-h-screen">
       <PageHeader 
@@ -221,14 +225,23 @@ const Aulas = () => {
         description="Administración de aulas y espacios físicos"
         onAdd={() => handleOpenModal()}
       />
-
+      {/* Barra de búsqueda por nombre */}
+      <div className="flex justify-end mb-2">
+        <Input
+          type="text"
+          placeholder="Buscar por nombre..."
+          value={searchNombre}
+          onChange={e => setSearchNombre(e.target.value)}
+          className="w-full max-w-xs"
+        />
+      </div>
       {isLoading ? (
         <div className="flex justify-center my-12">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-academic-primary"></div>
         </div>
       ) : (
         <DataTable 
-          data={aulas} 
+          data={filteredAulas} 
           columns={columns}
           onEdit={handleOpenModal}
           onDelete={handleDelete}

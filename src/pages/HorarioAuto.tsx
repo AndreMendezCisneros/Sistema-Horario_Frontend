@@ -396,26 +396,23 @@ const HorarioAuto = () => {
                 </div>
                 <Progress value={generacionResult.stats.sesiones_programadas_total && generacionResult.stats.sesiones_requeridas_total ? (generacionResult.stats.sesiones_programadas_total / generacionResult.stats.sesiones_requeridas_total) * 100 : 0} className="h-2" />
               </div>
-              {generacionResult.stats.sesiones_programadas_total === 0 && (
-                <div className="bg-red-50 text-red-700 rounded-md p-3 text-sm">
-                  No se pudo programar ninguna sesión. Verifique la disponibilidad de aulas, docentes y la configuración de los grupos.
-                </div>
-              )}
-              {generacionResult.unresolved_conflicts && generacionResult.unresolved_conflicts.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Conflictos no resueltos:</h4>
-                  <div className="bg-red-50 rounded-md p-3 max-h-48 overflow-y-auto">
-                    <ul className="space-y-2">
+              {/* Mostrar errores/conflictos si existen */}
+              {generacionResult.unresolved_conflicts && generacionResult.unresolved_conflicts.length > 0 ? (
+                <div className="mt-4">
+                  <h4 className="text-sm font-semibold mb-2 text-red-700">Conflictos o errores encontrados:</h4>
+                  <div className="bg-red-50 rounded-md p-3 max-h-48 overflow-y-auto border border-red-200">
+                    <ul className="space-y-2 list-disc pl-5">
                       {generacionResult.unresolved_conflicts.map((conflict, index) => (
-                        <li key={index} className="text-sm flex items-start">
-                          <X className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>
-                            {conflict.grupo_codigo}: {conflict.materia_nombre} - {conflict.razon}
-                          </span>
+                        <li key={index} className="text-sm text-red-800">
+                          <span className="font-bold">{conflict.grupo_codigo}</span>: {conflict.materia_nombre} — <span className="italic">{conflict.razon}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
+                </div>
+              ) : (
+                <div className="mt-4 text-green-700 text-sm font-medium bg-green-50 rounded-md p-3 border border-green-200">
+                  ¡Todos los grupos fueron programados exitosamente!
                 </div>
               )}
             </div>

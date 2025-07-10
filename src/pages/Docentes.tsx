@@ -89,6 +89,7 @@ const Docentes = () => {
   const [currentDocente, setCurrentDocente] = useState<Docente | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [pagination, setPagination] = useState({ count: 0, page: 1, pageSize: 10 });
+  const [searchEmail, setSearchEmail] = useState("");
   
   // Función para cargar todas las páginas de especialidades
   const loadAllEspecialidades = async (): Promise<Especialidad[]> => {
@@ -115,6 +116,24 @@ const Docentes = () => {
     
     setIsLoadingEspecialidades(false);
     return allEspecialidades;
+  };
+
+  const loadAllUsuarios = async (): Promise<Usuario[]> => {
+    const allUsuarios: Usuario[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await fetchData<ApiResponse<Usuario>>(`users/all/?page=${page}`);
+      if (response && 'results' in response) {
+        allUsuarios.push(...response.results);
+        hasMore = !!response.next;
+        page++;
+      } else {
+        hasMore = false;
+      }
+    }
+    return allUsuarios;
   };
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -170,12 +189,12 @@ const Docentes = () => {
       try {
         const [unidadesResponse, usuariosResponse, especialidadesResponse] = await Promise.all([
           fetchData<UnidadAcademica[] | ApiResponse<UnidadAcademica>>("academic-setup/unidades-academicas/"),
-          fetchData<Usuario[] | ApiResponse<Usuario>>("users/all/"),
+          loadAllUsuarios(),
           loadAllEspecialidades()
         ]);
         
         setUnidades('results' in unidadesResponse ? unidadesResponse.results : unidadesResponse);
-        setUsuarios('results' in usuariosResponse ? usuariosResponse.results : usuariosResponse);
+        setUsuarios(Array.isArray(usuariosResponse) ? usuariosResponse : []);
         setEspecialidades(especialidadesResponse);
 
       } catch (error) {
@@ -321,6 +340,24 @@ const Docentes = () => {
     },
   ];
 
+  // Filtrado por email
+  const filteredDocentes = docentes.filter(d => (d.email || "").toLowerCase().includes(searchEmail.toLowerCase()));
+
+  const handleUsuarioChange = (value: string | undefined) => {
+    if (!value) {
+      form.setValue('usuario', undefined);
+      // Si el usuario se deselecciona, no autocompletar email
+      return;
+    }
+    const usuarioId = parseInt(value);
+    form.setValue('usuario', usuarioId);
+    // Solo autocompletar email si está vacío o en modo creación
+    const usuarioSeleccionado = usuarios.find(u => u.id === usuarioId);
+    if (usuarioSeleccionado && (!form.getValues('email') || !currentDocente)) {
+      form.setValue('email', usuarioSeleccionado.email || '');
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 bg-gray-100 min-h-screen">
       <PageHeader 
@@ -328,14 +365,23 @@ const Docentes = () => {
         description="Administración de docentes"
         onAdd={() => handleOpenModal()}
       />
-
+      {/* Barra de búsqueda por email */}
+      <div className="flex justify-end mb-2">
+        <Input
+          type="text"
+          placeholder="Buscar por correo..."
+          value={searchEmail}
+          onChange={e => setSearchEmail(e.target.value)}
+          className="w-full max-w-xs"
+        />
+      </div>
       {isLoading ? (
         <div className="flex justify-center my-12">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-academic-primary"></div>
         </div>
       ) : (
         <DataTable 
-          data={docentes} 
+          data={filteredDocentes} 
           columns={columns}
           onEdit={handleOpenModal}
           onDelete={handleDelete}
@@ -382,7 +428,7 @@ const Docentes = () => {
                     <FormItem>
                       <FormLabel>Usuario del sistema (opcional)</FormLabel>
                       <Select
-                        onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
+                        onValueChange={handleUsuarioChange}
                         value={field.value?.toString() || undefined}
                       >
                         <FormControl>
