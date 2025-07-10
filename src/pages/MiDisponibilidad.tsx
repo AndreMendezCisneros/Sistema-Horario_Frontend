@@ -182,12 +182,12 @@ const MiDisponibilidad = () => {
       return;
     }
 
-    // Obtener bloques únicos por hora_inicio/hora_fin/turno
+    // Obtener bloques únicos por hora_inicio/hora_fin/turno y ordenarlos por hora de inicio
     const bloquesUnicos = Array.from(
       new Map(
         bloques.map(b => [`${b.hora_inicio}-${b.hora_fin}-${b.turno}`, b])
       ).values()
-    ).sort((a, b) => a.orden - b.orden);
+    ).sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
 
     // Encabezados: ["Bloque horario", "Turno", ...días]
     const headers = [
@@ -197,10 +197,10 @@ const MiDisponibilidad = () => {
     ];
     const templateData = [headers];
 
-    // Cada fila: bloque horario, turno, celdas vacías para cada día
+    // Cada fila: solo hora de inicio, turno, celdas vacías para cada día
     bloquesUnicos.forEach(bloque => {
       const row = [
-        `${bloque.hora_inicio} a ${bloque.hora_fin}`,
+        bloque.hora_inicio,
         bloque.turno === 'M' ? 'Mañana' : bloque.turno === 'T' ? 'Tarde' : 'Noche',
         ...diasSemana.map(() => "")
       ];
@@ -215,6 +215,15 @@ const MiDisponibilidad = () => {
     toast.success('Plantilla descargada correctamente');
   };
 
+  // Utilidad para normalizar encabezados (sin tildes, minúsculas, sin espacios)
+  function normalizarEncabezado(str: string) {
+    return str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // quita tildes
+      .replace(/\s+/g, '')
+      .toLowerCase();
+  }
+
   // Validar e importar archivo Excel tipo matriz
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setPlantillaError(null);
@@ -227,48 +236,52 @@ const MiDisponibilidad = () => {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
         const headers = json[0] as string[];
-        // Validar encabezados
-        if (!headers || headers.length < 8 || headers[0] !== 'Bloque horario' || headers[1] !== 'Turno') {
-          setPlantillaError('La plantilla debe tener los encabezados: Bloque horario, Turno y los días de la semana');
-          setFile(null);
-          return;
-        }
-        // Validar que los días estén bien
-        for (let i = 0; i < diasSemana.length; i++) {
-          if (headers[i+2] !== diasSemana[i].nombre) {
-            setPlantillaError(`La columna ${i+3} debe ser "${diasSemana[i].nombre}"`);
+        // Validar encabezados (ya flexible)
+        const encabezadosEsperados = [
+          'bloquehorario',
+          'turno',
+          'lunes',
+          'martes',
+          'miercoles',
+          'jueves',
+          'viernes',
+          'sabado',
+        ];
+        const headersNormalizados = headers.map(normalizarEncabezado);
+        for (let i = 0; i < encabezadosEsperados.length; i++) {
+          if (headersNormalizados[i] !== encabezadosEsperados[i]) {
+            setPlantillaError('La plantilla debe tener los encabezados: Bloque horario, Turno y los días de la semana');
             setFile(null);
             return;
           }
         }
-        // Validar filas
+        // Validar filas y celdas
+        const errores: string[] = [];
         for (let i = 1; i < json.length; i++) {
           const row = json[i] as unknown[];
           if (!Array.isArray(row) || row.length < 8) {
-            setPlantillaError(`Fila ${i+1}: Faltan columnas.`);
-            setFile(null);
-            return;
+            errores.push(`Fila ${i+1}: Faltan columnas.`);
+            continue;
           }
-          // Validar formato de hora
-          if (typeof row[0] !== 'string' || !row[0].includes('a')) {
-            setPlantillaError(`Fila ${i+1}: Formato de bloque horario inválido.`);
-            setFile(null);
-            return;
+          // Validar formato de hora (solo hora de inicio, formato HH:MM:SS)
+          if (typeof row[0] !== 'string' || !/^[0-9]{2}:[0-9]{2}:[0-9]{2}$/.test(row[0].trim())) {
+            errores.push(`Fila ${i+1}: Formato de bloque horario inválido. Debe ser HH:MM:SS`);
           }
           // Validar turno
-          if (!["Mañana","Tarde","Noche"].includes(String(row[1]))) {
-            setPlantillaError(`Fila ${i+1}: Turno inválido.`);
-            setFile(null);
-            return;
+          if (!['Mañana','Tarde','Noche'].includes(String(row[1]))) {
+            errores.push(`Fila ${i+1}: Turno inválido. Solo se permite Mañana, Tarde o Noche.`);
           }
           // Validar celdas: solo vacío o 1
           for (let j = 2; j < row.length; j++) {
-            if (row[j] !== "" && row[j] !== 1 && row[j] !== "1") {
-              setPlantillaError(`Fila ${i+1}, columna ${headers[j]}: Solo se permite 1 o vacío.`);
-              setFile(null);
-              return;
+            if (row[j] !== '' && row[j] !== 1 && row[j] !== '1' && row[j] !== 0 && row[j] !== '0' && row[j] !== null && typeof row[j] !== 'undefined') {
+              errores.push(`Fila ${i+1}, columna ${headers[j]}: Solo se permite 1, 0 o vacío.`);
             }
           }
+        }
+        if (errores.length > 0) {
+          setPlantillaError(errores.join('\n'));
+          setFile(null);
+          return;
         }
       } catch (err) {
         setPlantillaError('No se pudo leer el archivo. Asegúrate de que sea un Excel válido.');
