@@ -343,18 +343,29 @@ const Docentes = () => {
   // Filtrado por email
   const filteredDocentes = docentes.filter(d => (d.email || "").toLowerCase().includes(searchEmail.toLowerCase()));
 
+  // Filtrar usuarios que ya están asignados a un docente
+  const usuariosDisponibles = usuarios.filter(u => !docentes.some(d => d.usuario === u.id));
+
   const handleUsuarioChange = (value: string | undefined) => {
     if (!value) {
       form.setValue('usuario', undefined);
-      // Si el usuario se deselecciona, no autocompletar email
+      // Si el usuario se deselecciona, no autocompletar
       return;
     }
     const usuarioId = parseInt(value);
     form.setValue('usuario', usuarioId);
-    // Solo autocompletar email si está vacío o en modo creación
     const usuarioSeleccionado = usuarios.find(u => u.id === usuarioId);
-    if (usuarioSeleccionado && (!form.getValues('email') || !currentDocente)) {
-      form.setValue('email', usuarioSeleccionado.email || '');
+    if (usuarioSeleccionado) {
+      // Solo autocompletar si los campos están vacíos o si se está creando un nuevo docente
+      if (!form.getValues('email') || !currentDocente) {
+        form.setValue('email', usuarioSeleccionado.email || '');
+      }
+      if (!form.getValues('nombres') || !currentDocente) {
+        form.setValue('nombres', usuarioSeleccionado.first_name || '');
+      }
+      if (!form.getValues('apellidos') || !currentDocente) {
+        form.setValue('apellidos', usuarioSeleccionado.last_name || '');
+      }
     }
   };
 
@@ -437,7 +448,7 @@ const Docentes = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {usuarios.map((usuario) => (
+                          {usuariosDisponibles.map((usuario) => (
                             <SelectItem key={usuario.id} value={usuario.id.toString()}>
                               {usuario.username} ({usuario.first_name} {usuario.last_name})
                             </SelectItem>

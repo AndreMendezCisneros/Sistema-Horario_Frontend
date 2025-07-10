@@ -40,6 +40,8 @@ interface Group {
 const createUserSchema = z.object({
   username: z.string().min(1, "El usuario es obligatorio"),
   email: z.string().email("Correo inválido"),
+  first_name: z.string().min(1, "El nombre es obligatorio"),
+  last_name: z.string().min(1, "El apellido es obligatorio"),
   password: z.string().min(6, "Mínimo 6 caracteres"),
   password2: z.string().min(6, "Confirma la contraseña"),
   groups: z.array(z.number()).min(1, "Selecciona al menos un rol"),
@@ -51,6 +53,8 @@ const createUserSchema = z.object({
 const editUserSchema = z.object({
   username: z.string().min(1, "El usuario es obligatorio"),
   email: z.string().email("Correo inválido"),
+  first_name: z.string().min(1, "El nombre es obligatorio"),
+  last_name: z.string().min(1, "El apellido es obligatorio"),
   password: z.string().optional(),
   groups: z.array(z.number()).min(1, "Selecciona al menos un rol"),
 });
@@ -90,6 +94,8 @@ const Usuarios = () => {
     defaultValues: {
       username: "",
       email: "",
+      first_name: "",
+      last_name: "",
       password: "",
       password2: "",
       groups: [],
@@ -101,6 +107,8 @@ const Usuarios = () => {
     defaultValues: {
       username: "",
       email: "",
+      first_name: "",
+      last_name: "",
       password: "",
       groups: [],
     },
@@ -141,6 +149,8 @@ const Usuarios = () => {
       editForm.reset({
         username: user.username,
         email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
         password: "",
         groups: user.groups.map(g => g.id),
       });
@@ -275,6 +285,32 @@ const Usuarios = () => {
                 />
                 <FormField
                   control={editForm.control}
+                  name="first_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="last_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Apellido</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
                   name="password"
                   render={({ field }) => (
                     <FormItem>
@@ -340,6 +376,32 @@ const Usuarios = () => {
                       <FormLabel>Correo</FormLabel>
                       <FormControl>
                         <Input type="email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="first_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="last_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Apellido</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
