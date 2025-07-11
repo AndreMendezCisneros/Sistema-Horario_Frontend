@@ -791,7 +791,8 @@ const HorarioManual = () => {
                           const docente = docentes.find(d => d.docente_id === horario.docente);
                           const aula = aulas.find(a => a.espacio_id=== horario.espacio);
                           const grupo = grupos.find(g => g.grupo_id === horario.grupo);
-                          const materia = grupo?.materias_detalle?.[0]?.nombre_materia || 'N/A';
+                          // Corrección: buscar la materia por el ID de la asignación
+                          const materia = grupo?.materias_detalle?.find(m => m.materia_id === horario.materia)?.nombre_materia || 'N/A';
                           return (
                             <tr key={horario.horario_id} className="border-b hover:bg-gray-50">
                               <td className="p-3">{dia?.nombre || `ID: ${horario.dia_semana}`}</td>

@@ -77,6 +77,7 @@ interface Grupo {
   turno_preferente: string;
   docente_asignado_directamente: number | null;
   docente_asignado_directamente_nombre: string | null;
+  ciclo_semestral: number | null;
 }
 
 interface Column {
@@ -98,6 +99,7 @@ const formSchema = z.object({
     z.literal("").transform(() => null),
     z.null()
   ]),
+  ciclo_semestral: z.union([z.coerce.number().int().min(1, "Debe ser un número mayor a 0"), z.null()]).optional(),
 });
 
 const turnos = [
@@ -144,6 +146,7 @@ const Grupos = () => {
       numero_estudiantes_estimado: 0,
       turno_preferente: "M",
       docente_asignado_directamente: null,
+      ciclo_semestral: null,
     },
   });
   
@@ -269,6 +272,7 @@ const Grupos = () => {
           numero_estudiantes_estimado: currentGrupo.numero_estudiantes_estimado,
           turno_preferente: currentGrupo.turno_preferente,
           docente_asignado_directamente: currentGrupo.docente_asignado_directamente,
+          ciclo_semestral: currentGrupo.ciclo_semestral,
         });
       } else {
         form.reset({
@@ -279,6 +283,7 @@ const Grupos = () => {
           numero_estudiantes_estimado: 0,
           turno_preferente: "M",
           docente_asignado_directamente: null,
+          ciclo_semestral: null,
         });
       }
     }
@@ -326,6 +331,7 @@ const Grupos = () => {
         numero_estudiantes_estimado: grupo.numero_estudiantes_estimado,
         turno_preferente: grupo.turno_preferente,
         docente_asignado_directamente: grupo.docente_asignado_directamente,
+        ciclo_semestral: grupo.ciclo_semestral,
       });
       // Buscar ciclo de la primera materia (si existe)
       if (grupo.materias.length > 0) {
@@ -351,6 +357,7 @@ const Grupos = () => {
         numero_estudiantes_estimado: 0,
         turno_preferente: "M",
         docente_asignado_directamente: null,
+        ciclo_semestral: null,
       });
     }
     setIsModalOpen(true);
@@ -443,6 +450,11 @@ const Grupos = () => {
       header: "Período",
       key: "periodo_nombre",
       render: (row) => row.periodo_nombre || "N/A",
+    },
+    {
+      header: "Ciclo",
+      key: "ciclo_semestral",
+      render: (row) => row.ciclo_semestral ?? "-",
     },
     {
       header: "Estudiantes",
@@ -574,9 +586,9 @@ const Grupos = () => {
                 name="codigo_grupo"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Código del Grupo</FormLabel>
+                    <FormLabel htmlFor="codigo_grupo">Código del Grupo</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input id="codigo_grupo" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -588,13 +600,13 @@ const Grupos = () => {
                 name="carrera"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Carrera</FormLabel>
+                    <FormLabel htmlFor="carrera">Carrera</FormLabel>
                     <Select
                       onValueChange={(value) => field.onChange(Number(value))}
                       value={field.value?.toString()}
                     >
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger id="carrera">
                           <SelectValue placeholder="Seleccione una carrera" />
                         </SelectTrigger>
                       </FormControl>
@@ -616,13 +628,18 @@ const Grupos = () => {
 
               {isModalOpen && ciclos.length > 0 && (
                 <div className="mb-2">
-                  <FormLabel>Ciclo</FormLabel>
+                  <FormLabel htmlFor="ciclo">Ciclo</FormLabel>
                   <Select
-                    onValueChange={value => setCicloId(Number(value))}
+                    onValueChange={value => {
+                      setCicloId(Number(value));
+                      // Buscar el ciclo seleccionado y actualizar ciclo_semestral
+                      const cicloSeleccionado = ciclos.find(c => c.ciclo_id === Number(value));
+                      form.setValue("ciclo_semestral", cicloSeleccionado ? cicloSeleccionado.orden : null);
+                    }}
                     value={cicloId?.toString() || ""}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger id="ciclo">
                         <SelectValue placeholder="Seleccione un ciclo" />
                       </SelectTrigger>
                     </FormControl>
@@ -642,7 +659,7 @@ const Grupos = () => {
                 name="materias"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Materias</FormLabel>
+                    <FormLabel htmlFor="materias">Materias</FormLabel>
                     <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-3">
                       {materiasFiltradas.map((materia) => (
                         <div key={materia.materia_id} className="flex items-center space-x-2">
@@ -677,13 +694,13 @@ const Grupos = () => {
                 name="periodo"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Período</FormLabel>
+                    <FormLabel htmlFor="periodo">Período</FormLabel>
                     <Select
                       onValueChange={(value) => field.onChange(Number(value))}
                       value={field.value?.toString()}
                     >
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger id="periodo">
                           <SelectValue placeholder="Seleccione un período" />
                         </SelectTrigger>
                       </FormControl>
@@ -708,9 +725,10 @@ const Grupos = () => {
                 name="numero_estudiantes_estimado"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Número de Estudiantes</FormLabel>
+                    <FormLabel htmlFor="numero_estudiantes_estimado">Número de Estudiantes</FormLabel>
                     <FormControl>
                       <Input 
+                        id="numero_estudiantes_estimado"
                         type="number" 
                         {...field} 
                         onChange={(e) => field.onChange(Number(e.target.value))}
@@ -726,13 +744,13 @@ const Grupos = () => {
                 name="turno_preferente"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Turno Preferente</FormLabel>
+                    <FormLabel htmlFor="turno_preferente">Turno Preferente</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}
                     >
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger id="turno_preferente">
                           <SelectValue placeholder="Seleccione un turno" />
                         </SelectTrigger>
                       </FormControl>
@@ -754,13 +772,13 @@ const Grupos = () => {
                 name="docente_asignado_directamente"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Docente Asignado</FormLabel>
+                    <FormLabel htmlFor="docente_asignado_directamente">Docente Asignado</FormLabel>
                     <Select
                       onValueChange={(value) => field.onChange(value === "0" ? null : Number(value))}
                       value={field.value?.toString() || "0"}
                     >
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger id="docente_asignado_directamente">
                           <SelectValue placeholder="Seleccione un docente" />
                         </SelectTrigger>
                       </FormControl>
@@ -783,6 +801,28 @@ const Grupos = () => {
                   </FormItem>
                 )}
               />
+
+              {/* Elimina o comenta el bloque del formulario que renderiza ciclo_semestral: */}
+              {/* <FormField
+                control={form.control}
+                name="ciclo_semestral"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="ciclo_semestral">Ciclo Semestral</FormLabel>
+                    <FormControl>
+                      <Input
+                        id="ciclo_semestral"
+                        type="number"
+                        min={1}
+                        placeholder="Ej: 1, 2, 3..."
+                        value={field.value ?? ""}
+                        onChange={e => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              /> */}
             </form>
           </Form>
         }
