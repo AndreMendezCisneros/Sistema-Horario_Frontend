@@ -312,13 +312,12 @@ const MiDisponibilidad = () => {
       formData.append("periodo_id", selectedPeriodo.toString());
       formData.append("docente_id", docenteId.toString());
       
-      const response = await client.post("/scheduling/acciones-horario/importar-disponibilidad-excel/", formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const response = await client.post("/scheduling/acciones-horario/importar-disponibilidad-excel/", formData);
       
       console.log("Respuesta del servidor:", response.data);
       toast.success("Archivo subido y procesado con éxito.");
-      await loadDisponibilidad();
+      // Recargar toda la página tras importar
+      window.location.reload();
       setFile(null);
     } catch (error: any) {
       console.error("Error al subir archivo:", error);

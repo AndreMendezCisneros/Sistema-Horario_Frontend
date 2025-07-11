@@ -104,9 +104,9 @@ const HorarioAuto = () => {
     }, 800);
     
     try {
-      const response = await client.post('scheduling/acciones-horario/generar-horario-automatico/', {
-        periodo_id: selectedPeriodo
-      });
+      const formData = new FormData();
+      formData.append('periodo_id', selectedPeriodo.toString());
+      const response = await client.post('scheduling/acciones-horario/generar-horario-automatico/', formData);
       
       setGeneracionResult(response.data);
       clearInterval(progressInterval);
