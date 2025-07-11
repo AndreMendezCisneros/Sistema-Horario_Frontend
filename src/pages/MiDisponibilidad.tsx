@@ -303,60 +303,32 @@ const MiDisponibilidad = () => {
 
     setIsUploading(true);
     try {
-      // Leer archivo y convertir a estructura plana
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-      const headers = json[0] as string[];
-      const registros: { docente: number; periodo: number; dia_semana: number; bloque_horario: number; esta_disponible: boolean }[] = [];
-      // Mapear bloques únicos para encontrar bloque_def_id
-      const bloquesUnicos = Array.from(
-        new Map(
-          bloques.map(b => [`${b.hora_inicio} a ${b.hora_fin}-${b.turno}`, b])
-        ).values()
-      );
-      for (let i = 1; i < json.length; i++) {
-        const row = json[i] as unknown[];
-        const bloqueLabel = String(row[0]);
-        const turnoLabel = String(row[1]);
-        const bloque = bloquesUnicos.find(b => `${b.hora_inicio} a ${b.hora_fin}` === bloqueLabel && (b.turno === 'M' ? 'Mañana' : b.turno === 'T' ? 'Tarde' : 'Noche') === turnoLabel);
-        if (!bloque) continue;
-        for (let j = 2; j < row.length; j++) {
-          const valor = row[j];
-          const dia = diasSemana[j-2];
-          registros.push({
-            docente: docenteId,
-            periodo: selectedPeriodo,
-            dia_semana: dia.id,
-            bloque_horario: bloque.bloque_def_id,
-            esta_disponible: valor === 1 || valor === "1"
-          });
-        }
-      }
-      // Enviar como archivo Excel plano (como antes)
-      const exportData = registros.map(r => ({
-        Día: r.dia_semana,
-        Bloque: r.bloque_horario,
-        Disponible: r.esta_disponible ? 1 : 0
-      }));
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Import');
-      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([wbout], { type: 'application/octet-stream' });
+      console.log("Enviando archivo:", file.name);
+      console.log("Periodo ID:", selectedPeriodo);
+      console.log("Docente ID:", docenteId);
+      
       const formData = new FormData();
-      formData.append("file", blob, "import_transformado.xlsx");
+      formData.append("file", file);
       formData.append("periodo_id", selectedPeriodo.toString());
       formData.append("docente_id", docenteId.toString());
-      await client.post("/scheduling/acciones-horario/importar-disponibilidad-excel/", formData, {
+      
+      const response = await client.post("/scheduling/acciones-horario/importar-disponibilidad-excel/", formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
+      
+      console.log("Respuesta del servidor:", response.data);
       toast.success("Archivo subido y procesado con éxito.");
       await loadDisponibilidad();
       setFile(null);
-    } catch (error) {
-      toast.error("Error al subir el archivo.");
+    } catch (error: any) {
+      console.error("Error al subir archivo:", error);
+      if (error.response?.data?.error) {
+        toast.error(`Error: ${error.response.data.error}`);
+      } else if (error.response?.data?.errores) {
+        toast.error(`Errores en el archivo: ${error.response.data.errores.join(', ')}`);
+      } else {
+        toast.error("Error al subir el archivo.");
+      }
     } finally {
       setIsUploading(false);
     }
