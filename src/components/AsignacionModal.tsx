@@ -65,88 +65,46 @@ export const AsignacionModal = ({
   
   // Lógica de filtrado con useMemo para eficiencia
   const availableDocentes = useMemo(() => {
-    console.log("=== INICIO FILTRADO DE DOCENTES ===");
-    console.log("Parámetros recibidos:");
-    console.log("- bloqueId:", bloqueId);
-    console.log("- materiaId:", materiaId);
-    console.log("- Total docentes:", docentes.length);
-    console.log("- Total horarios del período:", allPeriodSchedules.length);
-    console.log("- Total disponibilidades:", disponibilidades.length);
-    console.log("- Total materias:", materias.length);
-    
     if (!bloqueId || !materiaId) {
-      console.log("❌ Faltan bloqueId o materiaId");
       return [];
     }
-    
     // Encontrar la materia para obtener sus requisitos
     const materiaActual = materias.find(m => m.materia_id === materiaId);
-    console.log("📚 Materia encontrada:", materiaActual);
-    
     if (!materiaActual) {
-      console.log("❌ No se encontró la materia");
       return [];
     }
-    
-    console.log("🎯 Especialidades requeridas:", materiaActual.especialidades_detalle);
-    
     const requiredSpecialtyIds = new Set(
       materiaActual.especialidades_detalle?.map(e => e.especialidad_id) || []
     );
-    console.log("🔍 IDs de especialidades requeridas:", Array.from(requiredSpecialtyIds));
-
-    // 1. Encontrar docentes ocupados en este bloque específico
-    const docentesOcupadosIds = new Set(
-      allPeriodSchedules
-        .filter(h => h.bloque_horario === bloqueId)
-        .map(h => h.docente)
-    );
-    console.log("🚫 Docentes ocupados en bloque", bloqueId, ":", Array.from(docentesOcupadosIds));
-
-    // 2. Encontrar docentes NO disponibles en este bloque específico
-    const docentesNoDisponiblesIds = new Set(
+    // Obtener el día de la semana del bloque
+    const bloqueActual = bloques.find(b => b.bloque_def_id === bloqueId);
+    const diaSemana = bloqueActual?.dia_semana;
+    // 1. Docentes disponibles explícitamente para este bloque y periodo
+    const docentesDisponiblesIds = new Set(
       disponibilidades
-        .filter(d => d.bloque_horario === bloqueId && !d.esta_disponible)
+        .filter(d => d.bloque_horario === bloqueId && d.periodo === periodoId && d.esta_disponible)
         .map(d => d.docente)
     );
-    console.log("⏰ Docentes no disponibles en bloque", bloqueId, ":", Array.from(docentesNoDisponiblesIds));
-
+    // 2. Docentes ocupados en este bloque, día y periodo
+    const docentesOcupadosIds = new Set(
+      allPeriodSchedules
+        .filter(h => h.bloque_horario === bloqueId && h.dia_semana === diaSemana && h.periodo === periodoId)
+        .map(h => h.docente)
+    );
     // Filtrar la lista completa de docentes
     const docentesFiltrados = docentes.filter(docente => {
-      console.log(`\n👨‍🏫 Analizando docente: ${docente.nombres} ${docente.apellidos} (ID: ${docente.docente_id})`);
-      console.log(`  - Especialidades del docente:`, docente.especialidades_detalle);
-      
+      const isAvailable = docentesDisponiblesIds.has(docente.docente_id);
       const isNotBusy = !docentesOcupadosIds.has(docente.docente_id);
-      const isAvailable = !docentesNoDisponiblesIds.has(docente.docente_id);
-      
-      console.log(`  - No ocupado: ${isNotBusy}`);
-      console.log(`  - Disponible: ${isAvailable}`);
-      
-      // Si no se requieren especialidades, solo chequear disponibilidad
       if (requiredSpecialtyIds.size === 0) {
-        console.log(`  - ✅ No se requieren especialidades específicas`);
-        const result = isNotBusy && isAvailable;
-        console.log(`  - Resultado final: ${result}`);
-        return result;
+        return isAvailable && isNotBusy;
       }
-      
-      // Si se requieren, chequear también que el docente tenga al menos una
       const hasRequiredSpecialty = docente.especialidades_detalle?.some(e => 
         requiredSpecialtyIds.has(e.especialidad_id)
       ) || false;
-      
-      console.log(`  - Tiene especialidad requerida: ${hasRequiredSpecialty}`);
-      
-      const result = isNotBusy && isAvailable && hasRequiredSpecialty;
-      console.log(`  - Resultado final: ${result}`);
-      
-      return result;
+      return isAvailable && isNotBusy && hasRequiredSpecialty;
     });
-
-    console.log("✅ Docentes filtrados finales:", docentesFiltrados.map(d => `${d.nombres} ${d.apellidos}`));
-    console.log("=== FIN FILTRADO DE DOCENTES ===\n");
     return docentesFiltrados;
-  }, [bloqueId, materiaId, allPeriodSchedules, disponibilidades, docentes, materias]);
+  }, [bloqueId, materiaId, periodoId, disponibilidades, docentes, materias, allPeriodSchedules, bloques]);
 
   const availableAulas = useMemo(() => {
     console.log("=== INICIO FILTRADO DE AULAS ===");
