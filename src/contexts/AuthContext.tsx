@@ -9,18 +9,25 @@ interface User {
   docente_id?: number;
   admin_id?: number;
   username?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  groups?: string[]; // Grupos reales del backend
 }
 
 interface AuthContextType {
   isAuthenticated: boolean;
   role: Role;
+  selectedRole: Role; // Rol seleccionado visualmente
   accessToken: string | null;
   refreshToken: string | null;
   user: User | null;
   setRole: (role: Role) => void;
+  setSelectedRole: (role: Role) => void; // Para la selección visual
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
+  getRealRole: () => Role; // Función para obtener el rol real del backend
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,9 +44,34 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Función para determinar el rol real basado en los grupos del backend
+const determineRealRole = (groups: string[]): Role => {
+  if (!groups || groups.length === 0) return null;
+  
+  // Si tiene grupo de administrador o coordinador, es Administrador
+  if (groups.some(group => 
+    group.toLowerCase().includes('admin') || 
+    group.toLowerCase().includes('coordinador') ||
+    group.toLowerCase().includes('administrador')
+  )) {
+    return 'Administrador';
+  }
+  
+  // Si tiene grupo de docente, es Docente
+  if (groups.some(group => 
+    group.toLowerCase().includes('docente')
+  )) {
+    return 'Docente';
+  }
+  
+  // Por defecto, si no se reconoce, es null
+  return null;
+};
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [role, setRole] = useState<Role>(null);
+  const [role, setRole] = useState<Role>(null); // Rol real del backend
+  const [selectedRole, setSelectedRole] = useState<Role>(null); // Rol seleccionado visualmente
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -47,9 +79,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     // Carga estado de autenticación desde localStorage
-    const storedRole = localStorage.getItem('role') as Role;
     const storedAccessToken = localStorage.getItem('accessToken');
     const storedRefreshToken = localStorage.getItem('refreshToken');
+    const storedSelectedRole = localStorage.getItem('selectedRole') as Role;
     
     // Try to load user data from localStorage if exists
     let storedUser = null;
@@ -62,12 +94,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error("Error parsing user data from localStorage", e);
     }
 
-    if (storedAccessToken && storedRole) {
+    if (storedAccessToken && storedUser) {
       setIsAuthenticated(true);
-      setRole(storedRole);
       setAccessToken(storedAccessToken);
       setRefreshToken(storedRefreshToken);
       setUser(storedUser);
+      setSelectedRole(storedSelectedRole);
+      
+      // Determinar el rol real basado en los grupos del usuario
+      const realRole = determineRealRole(storedUser.groups || []);
+      setRole(realRole);
       
       // Configurar el token en el cliente axios
       client.defaults.headers.common['Authorization'] = `Bearer ${storedAccessToken}`;
@@ -102,6 +138,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(userInfo);
       }
       
+      // Determinar el rol real basado en los grupos del backend
+      const realRole = determineRealRole(userInfo?.groups || []);
+      setRole(realRole);
+      
       // Actualizar estado
       setAccessToken(access);
       setRefreshToken(refresh);
@@ -109,6 +149,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Configurar el token en el cliente axios
       client.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+      
+      // Mostrar mensaje si el rol seleccionado no coincide con el real
+      const storedSelectedRole = localStorage.getItem('selectedRole') as Role;
+      if (storedSelectedRole && storedSelectedRole !== realRole) {
+        toast.info(`Tu rol real es: ${realRole}. Serás redirigido a tu vista correspondiente.`);
+      }
       
       return true;
     } catch (error) {
@@ -123,6 +169,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     // Limpiar localStorage
     localStorage.removeItem('role');
+    localStorage.removeItem('selectedRole');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
@@ -130,6 +177,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Limpiar estado
     setIsAuthenticated(false);
     setRole(null);
+    setSelectedRole(null);
     setAccessToken(null);
     setRefreshToken(null);
     setUser(null);
@@ -138,10 +186,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     delete client.defaults.headers.common['Authorization'];
   };
 
+  // Función para obtener el rol real del backend
+  const getRealRole = (): Role => {
+    return role;
+  };
+
   return (
     <AuthContext.Provider value={{
       isAuthenticated,
       role,
+      selectedRole,
       accessToken,
       refreshToken,
       user,
@@ -153,9 +207,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           localStorage.removeItem('role');
         }
       },
+      setSelectedRole: (newRole) => {
+        setSelectedRole(newRole);
+        if (newRole) {
+          localStorage.setItem('selectedRole', newRole);
+        } else {
+          localStorage.removeItem('selectedRole');
+        }
+      },
       login,
       logout,
-      isLoading
+      isLoading,
+      getRealRole
     }}>
       {children}
     </AuthContext.Provider>

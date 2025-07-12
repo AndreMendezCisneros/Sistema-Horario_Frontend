@@ -6,22 +6,22 @@ import logo from '/image/icono.png';
 import { useEffect } from 'react';
 
 const SelectRole = () => {
-  const { setRole, isAuthenticated } = useAuth();
+  const { setSelectedRole, isAuthenticated, role } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (isAuthenticated) {
-      const role = localStorage.getItem('role');
+      // Usar el rol real del backend para la redirección
       if (role === 'Administrador') {
         navigate('/dashboard-admin');
       } else if (role === 'Docente') {
         navigate('/dashboard-docente');
       }
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, role, navigate]);
 
   const handleRoleSelect = (selectedRole: 'Docente' | 'Administrador') => {
-    setRole(selectedRole);
+    setSelectedRole(selectedRole);
     navigate('/login');
   };
 
@@ -69,7 +69,7 @@ const SelectRole = () => {
             Bienvenido al Sistema del Equipo ABMODEL
           </h1>
           <p className="text-base md:text-lg text-gray-300 max-w-2xl mx-auto mb-8">
-            Este sistema facilita la planificación y organización de horarios académicos para <span className="font-bold">docentes y coordinadores.</span> Ingrese según tu rol para acceder a las funciones correspondientes.
+            Este sistema facilita la planificación y organización de horarios académicos para <span className="font-bold">docentes y coordinadores.</span> Selecciona tu rol preferido para acceder al sistema.
           </p>
         </motion.div>
 

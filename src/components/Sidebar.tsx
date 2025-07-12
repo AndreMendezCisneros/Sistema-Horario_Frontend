@@ -17,7 +17,9 @@ import {
   Download,
   Clock,
   CalendarDays,
-  User
+  User,
+  Shield,
+  GraduationCap
 } from 'lucide-react';
 import DarkModeToggle from './DarkModeToggle';
 import {
@@ -33,7 +35,7 @@ import {
 } from './ui/alert-dialog';
 
 const Sidebar = () => {
-  const { role, logout } = useAuth();
+  const { role, selectedRole, user, logout } = useAuth();
   const navigate = useNavigate();
   
   const adminLinks = [
@@ -59,6 +61,26 @@ const Sidebar = () => {
   
   const links = role === 'Administrador' ? adminLinks : docenteLinks;
   
+  // Función para obtener el icono del rol
+  const getRoleIcon = () => {
+    if (role === 'Administrador') {
+      return <Shield className="w-4 h-4" />;
+    } else if (role === 'Docente') {
+      return <GraduationCap className="w-4 h-4" />;
+    }
+    return <User className="w-4 h-4" />;
+  };
+
+  // Función para obtener el color del rol
+  const getRoleColor = () => {
+    if (role === 'Administrador') {
+      return 'bg-yellow-500 text-yellow-900';
+    } else if (role === 'Docente') {
+      return 'bg-red-500 text-white';
+    }
+    return 'bg-gray-500 text-white';
+  };
+  
   return (
     <aside className="h-screen w-64 bg-sidebar-background text-sidebar-foreground border-r border-sidebar-border fixed left-0 top-0 overflow-y-auto">
       <div className="p-4">
@@ -70,6 +92,30 @@ const Sidebar = () => {
           <p className="text-sm opacity-80">
             {role === 'Administrador' ? 'Panel Administrativo' : 'Panel Docente'}
           </p>
+        </div>
+
+        {/* Información del usuario y rol */}
+        <div className="mb-6 p-3 bg-sidebar-accent rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-sidebar-foreground">Usuario:</span>
+            <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${getRoleColor()}`}>
+              {getRoleIcon()}
+              <span className="ml-1">{role}</span>
+            </div>
+          </div>
+          {user && (
+            <div className="text-xs text-sidebar-foreground opacity-80">
+              <div>{user.username}</div>
+              {user.first_name && user.last_name && (
+                <div>{user.first_name} {user.last_name}</div>
+              )}
+            </div>
+          )}
+          {selectedRole && selectedRole !== role && (
+            <div className="mt-2 text-xs text-yellow-600 bg-yellow-100 p-2 rounded">
+              <strong>Nota:</strong> Tu rol real es {role}, no {selectedRole}
+            </div>
+          )}
         </div>
         
         <nav className="space-y-1">

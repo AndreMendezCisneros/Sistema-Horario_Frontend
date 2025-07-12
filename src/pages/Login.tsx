@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
@@ -13,12 +13,23 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login, role } = useAuth();
+  const { login, selectedRole, role } = useAuth();
   const navigate = useNavigate();
+
+  // Redirigir automáticamente después del login exitoso
+  useEffect(() => {
+    if (role) {
+      if (role === 'Administrador') {
+        navigate('/dashboard-admin');
+      } else if (role === 'Docente') {
+        navigate('/dashboard-docente');
+      }
+    }
+  }, [role, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!role) {
+    if (!selectedRole) {
       toast.error('Por favor seleccione un rol primero');
       navigate('/');
       return;
@@ -28,14 +39,14 @@ const Login = () => {
       const success = await login(username, password);
       if (success) {
         toast.success('Inicio de sesión exitoso');
-        navigate('/');
+        // La redirección se maneja automáticamente en el useEffect
       }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const roleDisplay = role === 'Administrador' ? 'Administrador' : 'Docente';
+  const roleDisplay = selectedRole === 'Administrador' ? 'Administrador' : 'Docente';
 
   return (
     <div 
@@ -95,7 +106,7 @@ const Login = () => {
                 <Button 
                   type="submit" 
                   className={`w-full text-white font-bold py-2.5 rounded-md transition-transform transform hover:scale-105 ${
-                    role === 'Administrador' 
+                    selectedRole === 'Administrador' 
                       ? 'bg-[#FFC107] hover:bg-yellow-500' 
                       : 'bg-[#e95460] hover:bg-red-700'
                   }`}
