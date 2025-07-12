@@ -27,16 +27,17 @@ const diasSemana = [
   { id: 6, nombre: "Sábado" },
 ];
 
-const CeldaHorario = ({ bloque, horario, materia, docente, aula }: { 
+const CeldaHorario = ({ bloque, horario, materia, docente, aula, materias }: { 
   bloque: BloqueHorario | undefined,
   horario: HorarioAsignado | undefined,
   materia: Materia | undefined,
   docente: Docente | undefined,
   aula: Aula | undefined,
+  materias: Materia[]
 }) => {
   const { isOver, setNodeRef } = useDroppable({
     id: bloque?.bloque_def_id ?? 'null',
-    disabled: !bloque || !!horario, // Deshabilitar solo si la celda ya está ocupada por el grupo actual
+    disabled: !bloque, // Solo deshabilita si no hay bloque, permite drop aunque haya horario
   });
 
   const baseClasses = "w-full h-full rounded-md transition-colors p-2 text-left text-xs flex flex-col justify-center";
@@ -46,19 +47,19 @@ const CeldaHorario = ({ bloque, horario, materia, docente, aula }: {
     // Si la celda está ocupada por el grupo actual, mostrar la información
     stateClasses = `border bg-academic-primary-light border-academic-primary text-gray-800`;
     
+    const materiaObj = materias.find(m => m.materia_id === horario.materia) 
+      || (horario as any).materia_detalle;
     return (
-      <div className={`${baseClasses} ${stateClasses}`}>
-        <div className="font-bold flex items-center mb-1">
+      <div className={`${baseClasses} ${stateClasses} overflow-hidden`}>
+        <div className="font-bold flex items-center mb-1 break-words whitespace-normal text-xs">
           <BookOpen className="w-3 h-3 mr-1.5 flex-shrink-0" />
-          <span>{materia?.nombre_materia ?? 'Materia desconocida'}</span>
+          <span className="break-words whitespace-normal block">{materiaObj?.nombre_materia ?? 'Sin materia'}</span>
         </div>
-        <div className="text-2xs text-gray-600 flex items-center mb-1">
-          <User className="w-3 h-3 mr-1.5 flex-shrink-0" />
-          <span>{docente ? `${docente.nombres.split(' ')[0]} ${docente.apellidos.split(' ')[0]}` : 'No asignado'}</span>
+        <div className="text-xs text-gray-700 break-words whitespace-normal block">
+          {docente ? `${docente.nombres} ${docente.apellidos}` : ''}
         </div>
-        <div className="text-2xs text-gray-600 flex items-center">
-          <Home className="w-3 h-3 mr-1.5 flex-shrink-0" />
-          <span>{aula?.nombre_espacio ?? 'No asignada'}</span>
+        <div className="text-xs text-gray-500 break-words whitespace-normal block">
+          {aula ? aula.nombre_espacio : ''}
         </div>
       </div>
     );
@@ -90,23 +91,23 @@ const HorarioGrid = ({ bloques, horarios, materias, docentes, aulas, selectedGru
 
   return (
     <div className="overflow-x-auto border border-gray-200 rounded-lg">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="w-full min-w-full divide-y divide-gray-200 table-fixed">
+        <thead className="bg-gray-50 sticky top-0 z-20">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
+            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-30 w-20">
               Horario
             </th>
             {diasSemana.map((dia) => (
-              <th key={dia.id} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th key={dia.id} className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24 whitespace-nowrap sticky top-0 bg-gray-50 z-20">
                 {dia.nombre}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-white divide-y divide-gray-200 text-xs">
           {rangosHorarios.map((rango, index) => (
             <tr key={index}>
-              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-700 sticky left-0 bg-white z-10">
+              <td className="px-2 py-2 whitespace-nowrap text-xs font-medium text-gray-700 sticky left-0 bg-white z-10 w-20">
                 {rango.inicio.slice(0, 5)} - {rango.fin.slice(0, 5)}
               </td>
               {diasSemana.map((dia) => {
@@ -126,13 +127,14 @@ const HorarioGrid = ({ bloques, horarios, materias, docentes, aulas, selectedGru
                 const aula = aulas.find(a => a.espacio_id === horarioDelGrupoActual?.espacio);
                 
                 return (
-                  <td key={dia.id} className="px-2 py-2 text-center align-top h-28">
+                  <td key={dia.id} className="px-1 py-1 text-center align-top h-20 w-24">
                     <CeldaHorario 
                       bloque={bloque} 
                       horario={horarioDelGrupoActual}
                       materia={materia}
                       docente={docente}
                       aula={aula}
+                      materias={materias}
                     />
                   </td>
                 );

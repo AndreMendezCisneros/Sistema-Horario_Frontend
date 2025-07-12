@@ -34,16 +34,12 @@ interface Restriccion {
 }
 
 const tiposAplicacion = [
-  { value: "MAX_HORAS_DIA_DOCENTE", label: "Máximo horas por día (Docente)" },
-  { value: "MAX_HORAS_CONSECUTIVAS", label: "Máximo horas consecutivas" },
-  { value: "DESCANSO_ENTRE_BLOQUES", label: "Descanso obligatorio entre bloques" },
-  { value: "PREFERENCIA_TURNO_GRUPO", label: "Preferencia de turno (Grupo)" },
-  { value: "TIEMPO_TRASLADO_AULAS", label: "Tiempo de traslado entre aulas" },
-  { value: "RESTRICCION_DIA_DOCENTE", label: "Día no disponible (Docente)" },
-  { value: "RESTRICCION_HORA_DOCENTE", label: "Hora no disponible (Docente)" },
-  { value: "AULA_ESPECIFICA_MATERIA", label: "Aula específica para materia" },
-  { value: "MATERIAS_CONSECUTIVAS", label: "Materias en bloques consecutivos" },
-  { value: "MAX_DIAS_DOCENTE", label: "Máximo días por semana (Docente)" }
+  { value: "GLOBAL", label: "Global (todos)" },
+  { value: "DOCENTE", label: "Docente" },
+  { value: "MATERIA", label: "Materia" },
+  { value: "AULA", label: "Aula/Espacio" },
+  { value: "CARRERA", label: "Carrera" },
+  { value: "PERIODO", label: "Período" }
 ];
 
 // Schema for form validation

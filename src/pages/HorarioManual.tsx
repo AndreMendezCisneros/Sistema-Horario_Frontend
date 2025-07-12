@@ -54,6 +54,9 @@ const HorarioManual = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [asignacionPendiente, setAsignacionPendiente] = useState<AsignacionPendiente | null>(null);
   
+  // Estado para edición de horario
+  const [horarioEditando, setHorarioEditando] = useState<HorarioAsignado | null>(null);
+
   // Selected values
   const [selectedUnidad, setSelectedUnidad] = useState<number | null>(null);
   const [selectedCarrera, setSelectedCarrera] = useState<number | null>(null);
@@ -342,7 +345,7 @@ const HorarioManual = () => {
   
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-
+    console.log('DragEnd', { active, over });
     // 'active' es el elemento arrastrado (materia)
     // 'over' es el área donde se soltó (celda/bloque)
     if (over && active.id && over.id) {
@@ -410,6 +413,48 @@ const HorarioManual = () => {
       setAsignacionPendiente(null);
     }
   }
+  
+  // Función para abrir el modal en modo edición
+  const handleEditarHorario = (horario: HorarioAsignado) => {
+    setHorarioEditando(horario);
+    setAsignacionPendiente({ materiaId: horario.materia, bloqueId: horario.bloque_horario });
+    setIsModalOpen(true);
+  };
+
+  // Función para guardar la edición
+  const handleSaveEdicion = async (docenteId: number, aulaId: number) => {
+    if (!horarioEditando || !selectedGrupo || !selectedPeriodo) {
+      toast.error("Faltan datos para la edición.");
+      return;
+    }
+    const bloqueActual = bloques.find(b => b.bloque_def_id === asignacionPendiente?.bloqueId);
+    if (!bloqueActual) {
+      toast.error("No se pudo encontrar la información del bloque horario.");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const actualizacion = {
+        docente: docenteId,
+        espacio: aulaId,
+        bloque_horario: asignacionPendiente?.bloqueId,
+        dia_semana: bloqueActual.dia_semana,
+      };
+      const response = await client.patch(`scheduling/horarios-asignados/${horarioEditando.horario_id}/`, actualizacion);
+      const horarioActualizado: HorarioAsignado = response.data;
+      setHorarios(horarios.map(h => h.horario_id === horarioActualizado.horario_id ? horarioActualizado : h));
+      setAllPeriodSchedules(allPeriodSchedules.map(h => h.horario_id === horarioActualizado.horario_id ? horarioActualizado : h));
+      toast.success("Horario editado correctamente");
+    } catch (error) {
+      console.error("Error editando horario:", error);
+      toast.error("Error al editar el horario");
+    } finally {
+      setIsSaving(false);
+      setIsModalOpen(false);
+      setAsignacionPendiente(null);
+      setHorarioEditando(null);
+    }
+  };
   
   const getMateriaPorGrupo = (grupoId: number): MateriaDetalle | undefined => {
     const grupo = grupos.find(g => g.grupo_id === grupoId);
@@ -584,260 +629,263 @@ const HorarioManual = () => {
   }, [selectedUnidad, selectedGrupo, docentes]);
   
   return (
-    <div className="container mx-auto py-6 bg-gray-100 min-h-screen">
+    <div className="w-full max-w-screen-2xl mx-auto px-2 md:px-6 py-6 bg-gray-100 min-h-screen">
       <PageHeader 
         title="Asignación Manual de Horarios" 
         description="Configure manualmente los horarios para grupos y docentes"
       />
-      
       <DndContext onDragEnd={handleDragEnd}>
-      <div className="grid md:grid-cols-12 gap-6">
-        {/* Filtros y selección */}
+        <div className="grid md:grid-cols-12 gap-4 md:gap-6">
+          {/* Filtros y selección */}
           <div className="md:col-span-3">
-          <Card>
-            <CardContent className="p-6 space-y-4">
-              <h3 className="text-lg font-medium">Selección</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="periodo">Periodo Académico</Label>
-                  <Select 
-                    value={selectedPeriodo?.toString() || ""}
-                    onValueChange={(value) => setSelectedPeriodo(Number(value))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar periodo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {periodos.map((periodo) => (
-                        <SelectItem key={periodo.periodo_id} value={periodo.periodo_id.toString()}>
-                          {periodo.nombre_periodo}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="unidad">Unidad Académica</Label>
-                  <Select 
-                    value={selectedUnidad?.toString() || ""}
-                    onValueChange={(value) => setSelectedUnidad(Number(value))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar unidad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                       {unidades
-                        .filter((unidad) => unidad?.unidad_id !== undefined)
-                          .map((unidad) => (
-                            <SelectItem key={unidad.unidad_id} value={unidad.unidad_id.toString()}>
-                            {unidad.nombre_unidad}
-                            </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="carrera">Carrera</Label>
-                  <Select 
-                    value={selectedCarrera?.toString() || ""}
-                    onValueChange={(value) => setSelectedCarrera(Number(value))}
-                    disabled={!selectedUnidad}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar carrera" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {carreras.map((carrera) => (
-                        <SelectItem key={carrera.carrera_id} value={carrera.carrera_id.toString()}>
-                          {carrera.nombre_carrera}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="grupo">Grupo/Sección</Label>
-                  <Select 
-                    value={selectedGrupo?.toString() || ""}
-                    onValueChange={(value) => setSelectedGrupo(Number(value))}
-                    disabled={!selectedCarrera || !selectedPeriodo}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar grupo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {grupos.map((grupo) => (
-                        <SelectItem key={grupo.grupo_id} value={grupo.grupo_id.toString()}>
-                          {grupo.codigo_grupo} - {grupo.materias_detalle?.map(m => m.nombre_materia).join(', ') || '(Sin materias asignadas)'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              {selectedGrupo && (
-                <div className="bg-gray-50 p-4 rounded-md mt-4">
-                  <h4 className="font-medium mb-2">Información del Grupo</h4>
-                  
-                  {(() => {
-                    const grupo = grupos.find(g => g.grupo_id === selectedGrupo);
-                    
-                    if (!grupo) {
-                      return <p>No se encontró información del grupo.</p>;
-                    }
-                    
-                    const materiaPrincipal = grupo.materias_detalle?.[0];
-                    if (!materiaPrincipal) {
-                      return <p>Este grupo no tiene materias asignadas.</p>;
-                    }
-
-                    const horasTotales = materiaPrincipal.horas_academicas_teoricas + materiaPrincipal.horas_academicas_practicas;
-                    const horasAsignadas = getHorasAsignadasGrupo(grupo.grupo_id);
-                    
-                    return (
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center">
-                          <BookOpen className="w-4 h-4 mr-2 text-academic-primary" />
-                          <span>{materiaPrincipal.nombre_materia}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <Clock className="w-4 h-4 mr-2 text-academic-primary" />
-                          <span>Horas necesarias: {horasTotales} ({materiaPrincipal.horas_academicas_teoricas} teóricas + {materiaPrincipal.horas_academicas_practicas} prácticas)</span>
-                        </div>
-                        <div className="flex items-center">
-                          <Calendar className="w-4 h-4 mr-2 text-academic-primary" />
-                          <span>Horas asignadas: {horasAsignadas} de {horasTotales}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <Users className="w-4 h-4 mr-2 text-academic-primary" />
-                          <span>Estudiantes estimados: {grupo.numero_estudiantes_estimado}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <MapPin className="w-4 h-4 mr-2 text-academic-primary" />
-                          <span>Turno preferente: {grupo.turno_preferente}</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Formulario de asignación */}
-          <div className="md:col-span-9">
-          <Card className="mb-6">
-            <CardContent className="p-6">
-                <h3 className="text-lg font-medium mb-4">Diseñador de Horario</h3>
-              
-              {selectedGrupo ? (
-                  <div className="grid grid-cols-12 gap-4">
-                    {/* Panel de Materias (ajustado) */}
-                    <div className="col-span-12 md:col-span-3">
-                      <MateriasPanel grupo={grupos.find(g => g.grupo_id === selectedGrupo) || null} />
-                    </div>
-                    
-                    {/* Cuadrícula del Horario (ajustado) */}
-                    <div className="col-span-12 md:col-span-9">
-                       <HorarioGrid 
-                         bloques={bloques}
-                         horarios={allPeriodSchedules}
-                         materias={materias}
-                         docentes={docentes}
-                         aulas={aulas}
-                         selectedGrupo={grupos.find(g => g.grupo_id === selectedGrupo) || null}
-                       />
-                    </div>
-                    
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Building className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>Seleccione un grupo para comenzar a diseñar el horario</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          
-          {/* Horarios asignados */}
-          {selectedGrupo && (
             <Card>
-              <CardContent className="p-6">
-                <h3 className="text-lg font-medium mb-4">Horarios Asignados</h3>
+              <CardContent className="p-4 md:p-6 space-y-4">
+                <h3 className="text-lg font-medium">Selección</h3>
                 
-                {horarios.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="bg-gray-100 border-b">
-                          <th className="p-3 text-left">Día</th>
-                          <th className="p-3 text-left">Materia</th>
-                          <th className="p-3 text-left">Horario</th>
-                          <th className="p-3 text-left">Docente</th>
-                          <th className="p-3 text-left">Aula</th>
-                          <th className="p-3 text-center">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {horarios.map((horario) => {
-                          const dia = diasSemana.find(d => d.id === horario.dia_semana);
-                          const bloque = bloques.find(b => b.bloque_def_id === horario.bloque_horario);
-                          const docente = docentes.find(d => d.docente_id === horario.docente);
-                          const aula = aulas.find(a => a.espacio_id=== horario.espacio);
-                          const grupo = grupos.find(g => g.grupo_id === horario.grupo);
-                          // Corrección: buscar la materia por el ID de la asignación
-                          const materia = grupo?.materias_detalle?.find(m => m.materia_id === horario.materia)?.nombre_materia || 'N/A';
-                          return (
-                            <tr key={horario.horario_id} className="border-b hover:bg-gray-50">
-                              <td className="p-3">{dia?.nombre || `ID: ${horario.dia_semana}`}</td>
-                              <td className="p-3">{materia}</td>
-                              <td className="p-3">{bloque ? bloque.nombre_bloque : `ID: ${horario.bloque_horario}`}</td>
-                              <td className="p-3">{docente ? `${docente.nombres} ${docente.apellidos}` : `ID: ${horario.docente}`}</td>
-                              <td className="p-3">{aula ? aula.nombre_espacio : `ID: ${horario.espacio}`}</td>
-                              <td className="p-3 text-center">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => handleDeleteHorario(horario.horario_id)}
-                                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                >
-                                  Eliminar
-                                </Button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="periodo">Periodo Académico</Label>
+                    <Select 
+                      value={selectedPeriodo?.toString() || ""}
+                      onValueChange={(value) => setSelectedPeriodo(Number(value))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar periodo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {periodos.map((periodo) => (
+                          <SelectItem key={periodo.periodo_id} value={periodo.periodo_id.toString()}>
+                            {periodo.nombre_periodo}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                ) : (
-                  <div className="text-center py-6 text-gray-500">
-                    <p>No hay horarios asignados para este grupo</p>
+                  
+                  <div>
+                    <Label htmlFor="unidad">Unidad Académica</Label>
+                    <Select 
+                      value={selectedUnidad?.toString() || ""}
+                      onValueChange={(value) => setSelectedUnidad(Number(value))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar unidad" />
+                      </SelectTrigger>
+                      <SelectContent>
+                         {unidades
+                          .filter((unidad) => unidad?.unidad_id !== undefined)
+                            .map((unidad) => (
+                              <SelectItem key={unidad.unidad_id} value={unidad.unidad_id.toString()}>
+                              {unidad.nombre_unidad}
+                              </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="carrera">Carrera</Label>
+                    <Select 
+                      value={selectedCarrera?.toString() || ""}
+                      onValueChange={(value) => setSelectedCarrera(Number(value))}
+                      disabled={!selectedUnidad}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar carrera" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {carreras.map((carrera) => (
+                          <SelectItem key={carrera.carrera_id} value={carrera.carrera_id.toString()}>
+                            {carrera.nombre_carrera}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="grupo">Grupo/Sección</Label>
+                    <Select 
+                      value={selectedGrupo?.toString() || ""}
+                      onValueChange={(value) => setSelectedGrupo(Number(value))}
+                      disabled={!selectedCarrera || !selectedPeriodo}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar grupo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {grupos.map((grupo) => (
+                          <SelectItem key={grupo.grupo_id} value={grupo.grupo_id.toString()}>
+                            {grupo.codigo_grupo} - {grupo.materias_detalle?.map(m => m.nombre_materia).join(', ') || '(Sin materias asignadas)'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                {selectedGrupo && (
+                  <div className="bg-gray-50 p-4 rounded-md mt-4">
+                    <h4 className="font-medium mb-2">Información del Grupo</h4>
+                    
+                    {(() => {
+                      const grupo = grupos.find(g => g.grupo_id === selectedGrupo);
+                      
+                      if (!grupo) {
+                        return <p>No se encontró información del grupo.</p>;
+                      }
+                      
+                      const materiaPrincipal = grupo.materias_detalle?.[0];
+                      if (!materiaPrincipal) {
+                        return <p>Este grupo no tiene materias asignadas.</p>;
+                      }
+
+                      const horasTotales = materiaPrincipal.horas_academicas_teoricas + materiaPrincipal.horas_academicas_practicas;
+                      const horasAsignadas = getHorasAsignadasGrupo(grupo.grupo_id);
+                      
+                      return (
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center">
+                            <BookOpen className="w-4 h-4 mr-2 text-academic-primary" />
+                            <span>{materiaPrincipal.nombre_materia}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Clock className="w-4 h-4 mr-2 text-academic-primary" />
+                            <span>Horas necesarias: {horasTotales} ({materiaPrincipal.horas_academicas_teoricas} teóricas + {materiaPrincipal.horas_academicas_practicas} prácticas)</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Calendar className="w-4 h-4 mr-2 text-academic-primary" />
+                            <span>Horas asignadas: {horasAsignadas} de {horasTotales}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Users className="w-4 h-4 mr-2 text-academic-primary" />
+                            <span>Estudiantes estimados: {grupo.numero_estudiantes_estimado}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <MapPin className="w-4 h-4 mr-2 text-academic-primary" />
+                            <span>Turno preferente: {grupo.turno_preferente}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </CardContent>
             </Card>
-          )}
+          </div>
+          {/* Formulario de asignación */}
+          <div className="md:col-span-9">
+            <Card className="mb-6">
+              <CardContent className="p-4 md:p-6">
+                <h3 className="text-lg font-medium mb-4">Diseñador de Horario</h3>
+                {selectedGrupo ? (
+                  <div className="grid grid-cols-12 gap-2 md:gap-4">
+                    {/* Panel de Materias */}
+                    <div className="col-span-12 md:col-span-3">
+                      <MateriasPanel grupo={grupos.find(g => g.grupo_id === selectedGrupo) || null} />
+                    </div>
+                    {/* Cuadrícula del Horario */}
+                    <div className="col-span-12 md:col-span-9">
+                      <HorarioGrid 
+                        bloques={bloques}
+                        horarios={allPeriodSchedules}
+                        materias={materias}
+                        docentes={docentes}
+                        aulas={aulas}
+                        selectedGrupo={grupos.find(g => g.grupo_id === selectedGrupo) || null}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Building className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                    <p>Seleccione un grupo para comenzar a diseñar el horario</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            {/* Horarios asignados */}
+            {selectedGrupo && (
+              <Card>
+                <CardContent className="p-4">
+                  <h3 className="text-lg font-medium mb-4">Horarios Asignados</h3>
+                  
+                  {horarios.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-gray-100 border-b">
+                            <th className="p-3 text-left">Día</th>
+                            <th className="p-3 text-left">Materia</th>
+                            <th className="p-3 text-left">Horario</th>
+                            <th className="p-3 text-left">Docente</th>
+                            <th className="p-3 text-left">Aula</th>
+                            <th className="p-3 text-center">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {horarios.map((horario) => {
+                            const dia = diasSemana.find(d => d.id === horario.dia_semana);
+                            const bloque = bloques.find(b => b.bloque_def_id === horario.bloque_horario);
+                            const docente = docentes.find(d => d.docente_id === horario.docente);
+                            const aula = aulas.find(a => a.espacio_id=== horario.espacio);
+                            const grupo = grupos.find(g => g.grupo_id === horario.grupo);
+                            // Corrección: buscar la materia por el ID de la asignación
+                            const materia = grupo?.materias_detalle?.find(m => m.materia_id === horario.materia)?.nombre_materia
+                              || (horario as any).materia_detalle?.nombre_materia
+                              || 'N/A';
+                            return (
+                              <tr key={horario.horario_id} className="border-b hover:bg-gray-50">
+                                <td className="p-3">{dia?.nombre || `ID: ${horario.dia_semana}`}</td>
+                                <td className="p-3">{materia}</td>
+                                <td className="p-3">{bloque ? bloque.nombre_bloque : `ID: ${horario.bloque_horario}`}</td>
+                                <td className="p-3">{docente ? `${docente.nombres} ${docente.apellidos}` : `ID: ${horario.docente}`}</td>
+                                <td className="p-3">{aula ? aula.nombre_espacio : `ID: ${horario.espacio}`}</td>
+                                <td className="p-3 text-center">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => handleEditarHorario(horario)}
+                                    className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 mr-2"
+                                  >
+                                    Editar
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => handleDeleteHorario(horario.horario_id)}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    Eliminar
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-gray-500">
+                      <p>No hay horarios asignados para este grupo</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
-      </div>
       </DndContext>
-      
+      {/* Modal de asignación */}
       {asignacionPendiente && (() => {
         const grupoSeleccionado = grupos.find(g => g.grupo_id === selectedGrupo);
         const materiaEnGrupo = grupoSeleccionado?.materias_detalle?.find(m => m.materia_id === asignacionPendiente.materiaId);
         const materiasDelGrupo = grupoSeleccionado?.materias_detalle ?? [];
-        
         return (
           <AsignacionModal 
             isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
-            onSave={handleSaveAsignacion}
+            onClose={() => { setIsModalOpen(false); setHorarioEditando(null); setAsignacionPendiente(null); }}
+            onSave={horarioEditando ? handleSaveEdicion : handleSaveAsignacion}
             materiaId={asignacionPendiente.materiaId}
             materiaNombre={materiaEnGrupo?.nombre_materia ?? 'Desconocida'}
             bloqueId={asignacionPendiente.bloqueId}
@@ -856,6 +904,7 @@ const HorarioManual = () => {
         );
       })()}
 
+      {/* Loader */}
       {(isLoading || isSaving) && (
         <div className="fixed inset-0 bg-gray-900/20 flex items-center justify-center z-50">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-academic-primary"></div>
