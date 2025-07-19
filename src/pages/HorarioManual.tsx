@@ -193,7 +193,7 @@ const HorarioManual = () => {
                 }
                 
                 // Verificar si hay más páginas
-                nextUrl = data.next ? data.next.replace('http://localhost:8000/api/', '') : null;
+                nextUrl = data.next ? data.next.replace(client.defaults.baseURL, '') : null;
                 
                 console.log(`[Aulas] Cargadas ${data.results?.length || 0} aulas de esta página. Total acumulado: ${allAulas.length}`);
               } catch (error: unknown) {
